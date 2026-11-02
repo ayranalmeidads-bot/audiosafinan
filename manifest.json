@@ -1,0 +1,21 @@
+{
+  "short_name": "Áudio S.A.",
+  "name": "Áudio S.A. - Painel Financeiro",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#0b1f28",
+  "theme_color": "#123746",
+  "display": "standalone",
+  "orientation": "portrait"
+}

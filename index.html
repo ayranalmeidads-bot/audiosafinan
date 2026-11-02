@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Áudio S.A. - Sistema Financeiro PWA</title>
+    
+    <!-- CSS Principal -->
+    <link rel="stylesheet" href="style.css">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF para exportação de relatórios -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Configurações PWA -->
+    <meta name="theme-color" content="#123746">
+    <link rel="apple-touch-icon" href="logo.png">
+</head>
+<body>
+
+    <!-- ========================================== -->
+    <!-- TELA DE AUTENTICAÇÃO (3 PERFIS FIXOS)      -->
+    <!-- ========================================== -->
+    <section id="auth-screen" class="screen active">
+        <div class="auth-card">
+            <div class="logo-container">
+                <img src="logo.png" alt="Áudio S.A. Logo" class="clinica-logo-img" onerror="this.style.display='none'">
+                <p>Sistema Financeiro Oficial</p>
+            </div>
+
+            <form id="form-login" class="auth-form active">
+                <h3>Acesso Restrito</h3>
+                <div class="campo">
+                    <label>Selecione o Perfil de Acesso</label>
+                    <select id="login-usuario" required>
+                        <option value="">-- Escolha o usuário --</option>
+                        <option value="recepcao">Recepção</option>
+                        <option value="gerente">Gerente</option>
+                        <option value="analista">Analista</option>
+                    </select>
+                </div>
+                <div class="campo">
+                    <label>Senha de Acesso</label>
+                    <input type="password" id="login-senha" placeholder="Digite sua senha" required>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 10px;">Entrar no Sistema</button>
+            </form>
+
+            <!-- Modal de alteração obrigatória de senha no 1º acesso -->
+            <form id="form-alterar-primeiro-acesso" class="auth-form" style="display: none;">
+                <h3>Alterar Senha Temporária</h3>
+                <p style="font-size: 0.85rem; color: var(--danger); margin-bottom: 10px;">Por segurança, altere a sua senha padrão no primeiro acesso.</p>
+                <input type="password" id="nova-senha-1" placeholder="Nova Senha" required>
+                <input type="password" id="nova-senha-2" placeholder="Confirme a Nova Senha" required>
+                <button type="submit" class="btn-primary" style="background: var(--success);">Salvar Nova Senha e Entrar</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- PAINEL PRINCIPAL (DASHBOARD)               -->
+    <!-- ========================================== -->
+    <div id="app-dashboard" class="app-container hidden">
+        
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="logo-area">
+                <img src="logo.png" alt="Logo Áudio S.A." class="brand-logo clinica-logo-img" onerror="this.style.display='none'">
+                <span class="brand-title">Áudio S.A. — Gestão Financeira</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span id="user-role-badge" style="font-size: 0.8rem; background: rgba(255,255,255,0.15); padding: 5px 10px; border-radius: 6px;"></span>
+                <button id="btn-logout" class="btn-logout">Sair</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            
+            <!-- Resumo Financeiro (Gerente e Analista) -->
+            <section id="secao-kpi" class="kpi-grid">
+                <div class="kpi-card in">
+                    <span>Recebimento Bruto</span>
+                    <strong id="total-entradas">R$ 0,00</strong>
+                </div>
+                <div class="kpi-card out">
+                    <span>Saídas / Despesas</span>
+                    <strong id="total-saidas">R$ 0,00</strong>
+                </div>
+                <div class="kpi-card total">
+                    <span>Saldo Operacional Líquido</span>
+                    <strong id="saldo-liquido">R$ 0,00</strong>
+                </div>
+            </section>
+
+            <!-- Módulo OCR para Notas Fiscais (Exclusivo para Gerente e Analista) -->
+            <section id="secao-ocr" class="card-section" style="display: none;">
+                <h3>Escanear Nota Fiscal / Compras (OCR Inteligente)</h3>
+                <div class="ocr-box">
+                    <input type="file" id="ocr-file-input" accept="image/*" capture="environment" style="display: none;">
+                    
+                    <div class="ocr-actions-group">
+                        <button type="button" id="btn-trigger-camera" class="btn-secondary">📸 Tirar Foto da Nota de Compra</button>
+                        <button type="button" id="btn-trigger-gallery" class="btn-outline">📂 Escolher da Galeria</button>
+                    </div>
+
+                    <div id="ocr-status" class="ocr-status">Aponte a câmara para a nota fiscal de compra. O sistema processará os dados para a sua revisão.</div>
+
+                    <div id="ocr-preview-container" class="ocr-preview-box">
+                        <h4 style="margin-bottom: 10px; color: var(--primary);">Revisão dos Dados da Compra</h4>
+                        <div class="grid-form" style="margin-bottom: 10px;">
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: bold;">Descrição do Gasto / Compra:</label>
+                                <input type="text" id="ocr-prev-desc" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: bold;">Valor (R$):</label>
+                                <input type="number" step="0.01" id="ocr-prev-val" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" id="btn-confirm-ocr" class="btn-primary" style="background-color: var(--success); padding: 8px 16px;">✅ Confirmar e Lançar Saída</button>
+                            <button type="button" id="btn-cancel-ocr" class="btn-outline" style="border-color: var(--danger); color: var(--danger); padding: 8px 16px;">❌ Descartar</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Formulário de Lançamento -->
+            <section class="card-section">
+                <h3>Novo Lançamento Financeiro</h3>
+                <form id="form-transacao" class="grid-form">
+                    <div class="campo">
+                        <label>Tipo de Movimento</label>
+                        <select id="t-tipo" required>
+                            <option value="entrada">Entrada / Recebimento (+)</option>
+                            <option value="saida">Saída / Despesa (-)</option>
+                        </select>
+                    </div>
+
+                    <div class="campo">
+                        <label>Categoria / Serviço</label>
+                        <select id="t-categoria" required></select>
+                    </div>
+
+                    <div class="campo" id="campo-profissional">
+                        <label>Profissional Responsável</label>
+                        <select id="t-profissional"></select>
+                    </div>
+
+                    <div class="campo">
+                        <label>Descrição / Nome do Paciente</label>
+                        <input type="text" id="t-descricao" placeholder="Nome do paciente ou gasto" required>
+                    </div>
+
+                    <div class="campo">
+                        <label>Valor Bruto (R$)</label>
+                        <input type="number" id="t-valor" step="0.01" placeholder="0,00" required>
+                    </div>
+
+                    <div class="campo">
+                        <label>Data</label>
+                        <input type="date" id="t-data" required>
+                    </div>
+
+                    <div class="campo" id="campo-pagamento">
+                        <label>Forma de Pagamento</label>
+                        <select id="t-forma-pagamento">
+                            <option value="PIX">PIX / Dinheiro / Boleto (Sem taxa)</option>
+                            <option value="Débito">Cartão de Débito</option>
+                            <option value="Crédito à vista">Crédito à vista</option>
+                            <option value="Crédito Parcelado">Crédito Parcelado (2x a 12x)</option>
+                        </select>
+                    </div>
+
+                    <div class="campo" id="campo-bandeira" style="display:none;">
+                        <label>Bandeira / Operadora (Taxa Automática)</label>
+                        <select id="t-bandeira">
+                            <option value="">Selecione a bandeira...</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="grid-column: 1 / -1; margin-top: 10px;">Efetuar Lançamento no Sistema</button>
+                </form>
+            </section>
+
+            <!-- Gráfico de Desempenho (Gerente e Analista) -->
+            <section id="secao-grafico" class="card-section">
+                <h3>Visão Gráfica de Entradas e Saídas</h3>
+                <div class="chart-container">
+                    <canvas id="financeChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Tabela de Histórico e Gestão -->
+            <section class="card-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3>Histórico de Movimentações</h3>
+                    <div id="acoes-analista" style="display: none; gap: 10px;">
+                        <button id="btn-export-csv" class="btn-outline">Exportar Excel (CSV)</button>
+                        <button id="btn-export-pdf" class="btn-outline">Exportar Relatório PDF</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Categoria</th>
+                                <th>Descrição / Paciente</th>
+                                <th>Valor Líquido (R$)</th>
+                                <th id="th-acoes" style="display: none;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transacoes-list">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Rodapé Institucional -->
+        <footer style="text-align: center; padding: 20px; font-size: 0.82rem; color: #6c7d8a; border-top: 1px solid #d0dce3; margin-top: 30px;">
+            © 2026 Áudio S.A. - Todos os direitos reservados | Desenvolvido por <b>ayrandev</b>
+        </footer>
+    </div>
+
+    <!-- Script Principal -->
+    <script src="func.js" type="module"></script>
+</body>
+</html>
