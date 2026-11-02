@@ -20,7 +20,6 @@ const TAXAS_CARTAO = {
     'Hipercard Crédito': 0.0220, 'Hipercard 2x a 6x': 0.0371, 'Hipercard 7x a 12x': 0.0435
 };
 
-// Função simples de hash para garantir armazenamento seguro em ambiente frontend/local
 async function hashSenha(senha) {
     const msgUint8 = new TextEncoder().encode(senha);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
@@ -28,7 +27,6 @@ async function hashSenha(senha) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Inicialização segura de perfis com senhas hash (Padrão exigido: troca obrigatória para TODOS, inclusive analista)
 async function inicializarPerfisDefault() {
     let salvo = JSON.parse(localStorage.getItem('audio_sa_perfis_v2'));
     if (!salvo) {
@@ -59,6 +57,7 @@ const formTransacao = document.getElementById('form-transacao');
 const selectTipo = document.getElementById('t-tipo');
 const selectCategoria = document.getElementById('t-categoria');
 const selectProfissional = document.getElementById('t-profissional');
+const selectFormaPagamento = document.getElementById('t-forma-pagamento');
 const selectBandeira = document.getElementById('t-bandeira');
 const campoProfissional = document.getElementById('campo-profissional');
 const campoBandeira = document.getElementById('campo-bandeira');
@@ -100,12 +99,13 @@ function atualizarCategorias() {
 selectTipo.addEventListener('change', atualizarCategorias);
 
 window.mudarAba = function(aba) {
-    document.getElementById('aba-dashboard').style.display = aba === 'dashboard' ? 'block' : 'none';
-    document.getElementById('aba-lancamento').style.display = aba === 'lancamento' ? 'block' : 'none';
-    document.getElementById('aba-historico').style.display = aba === 'historico' ? 'block' : 'none';
+    document.getElementById('aba-dashboard').style.display = aba === 'dashboard' ? 'flex' : 'none';
+    document.getElementById('aba-lancamento').style.display = aba === 'lancamento' ? 'flex' : 'none';
+    document.getElementById('aba-historico').style.display = aba === 'historico' ? 'flex' : 'none';
 
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`tab-btn-${aba}`).classList.add('active');
+    document.querySelectorAll('.nav-item-cmd').forEach(b => b.classList.remove('active'));
+    const btnAtivo = document.getElementById(`tab-btn-${aba}`);
+    if (btnAtivo) btnAtivo.classList.add('active');
 
     if (aba === 'dashboard') {
         setTimeout(() => atualizarDashboardVisual(), 100);
@@ -181,7 +181,6 @@ function aplicarPermissoesPerfil() {
     const acoesAnalista = document.getElementById('acoes-analista');
     const thAcoes = document.getElementById('th-acoes');
 
-    // Validação de Permissões baseada no perfil
     if (sessaoAtual.perfil === 'recepcao') {
         if (secaoOcr) secaoOcr.style.display = 'none';
         if (acoesAnalista) acoesAnalista.style.display = 'none';
@@ -345,8 +344,8 @@ function renderTabela() {
 
         if (sessaoAtual && sessaoAtual.perfil === 'analista') {
             html += `<td>
-                <button onclick="editarTransacao('${t.id}')" style="background: var(--accent); color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">Editar</button>
-                <button onclick="deletarTransacao('${t.id}')" style="background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;">Excluir</button>
+                <button onclick="editarTransacao('${t.id}')" style="background: var(--accent); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin-right: 5px;">Editar</button>
+                <button onclick="deletarTransacao('${t.id}')" style="background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer;">Excluir</button>
             </td>`;
         }
         tr.innerHTML = html;
@@ -400,10 +399,20 @@ function renderCharts() {
             datasets: [{
                 label: 'Total Geral (R$)',
                 data: [0, 0],
-                backgroundColor: ['var(--success)', 'var(--danger)']
+                backgroundColor: ['#10b981', '#ef4444']
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#8ab6c1' } }
+            },
+            scales: {
+                x: { ticks: { color: '#8ab6c1' }, grid: { color: 'rgba(138, 182, 193, 0.1)' } },
+                y: { ticks: { color: '#8ab6c1' }, grid: { color: 'rgba(138, 182, 193, 0.1)' } }
+            }
+        }
     });
 
     const ctxPie = document.getElementById('financePieChart').getContext('2d');
@@ -416,7 +425,13 @@ function renderCharts() {
                 backgroundColor: ['#2c8c9e', '#10b981', '#ef4444', '#8ab6c1']
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#8ab6c1' } }
+            }
+        }
     });
 }
 
@@ -431,7 +446,6 @@ function updateCharts(entradas, saidas) {
     pieChartInstance.update();
 }
 
-// Módulo OCR Assistivo com Confirmação Humana Obrigatória
 const btnTriggerCamera = document.getElementById('btn-trigger-camera');
 const btnTriggerGallery = document.getElementById('btn-trigger-gallery');
 const ocrFileInput = document.getElementById('ocr-file-input');
@@ -475,16 +489,14 @@ if (btnTriggerCamera) {
     });
 }
 
-// Sanitização CSV contra CSV Injection
 function sanitizarCSV(valor) {
     if (typeof valor !== 'string') return valor;
     if (/^[=+\-@]/.test(valor)) {
-        return `'${valor}`; // Neutraliza caracteres que o Excel interpreta como fórmula
+        return `'${valor}`;
     }
     return `"${valor.replace(/"/g, '""')}"`;
 }
 
-// Exportação com restrição por perfil
 document.getElementById('btn-export-csv')?.addEventListener('click', () => {
     if (sessaoAtual?.perfil !== 'analista') return alert("Acesso restrito ao Analista.");
     let csvContent = "\uFEFFData,Tipo,Categoria,Profissional,Descricao,Valor Liquido (R$)\n";

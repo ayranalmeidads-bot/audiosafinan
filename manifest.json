@@ -1,6 +1,6 @@
 {
   "short_name": "Áudio S.A.",
-  "name": "Áudio S.A. - Painel Financeiro",
+  "name": "Áudio S.A. - Smart Financial Command",
   "icons": [
     {
       "src": "logo.png",
@@ -14,8 +14,8 @@
     }
   ],
   "start_url": "./index.html",
-  "background_color": "#0b1f28",
-  "theme_color": "#123746",
+  "background_color": "#07141b",
+  "theme_color": "#07141b",
   "display": "standalone",
   "orientation": "portrait"
 }

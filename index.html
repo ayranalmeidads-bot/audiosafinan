@@ -43,7 +43,7 @@
 
             <form id="form-alterar-primeiro-acesso" class="auth-form" style="display: none;">
                 <h3>Alterar Senha Temporária</h3>
-                <p style="font-size: 0.85rem; color: var(--danger); margin-bottom: 10px;">Por segurança, defina uma nova senha pessoal (mínimo de 8 caracteres).</p>
+                <p style="font-size: 0.83rem; color: var(--danger); margin-bottom: 10px;">Por segurança, defina uma nova senha pessoal (mínimo de 8 caracteres).</p>
                 <div class="campo">
                     <label>Nova Senha</label>
                     <input type="password" id="nova-senha-1" required minlength="8">
@@ -68,7 +68,7 @@
                     <span>Áudio S.A.</span>
                 </div>
                 
-                <div class="sidebar-nav">
+                <nav class="sidebar-nav">
                     <button id="tab-btn-dashboard" class="nav-item-cmd active" onclick="mudarAba('dashboard')">
                         📊 Dashboard Executivo
                     </button>
@@ -78,7 +78,7 @@
                     <button id="tab-btn-historico" class="nav-item-cmd" onclick="mudarAba('historico')">
                         📋 Histórico & Gestão
                     </button>
-                </div>
+                </nav>
             </div>
 
             <div class="sidebar-footer">
@@ -146,7 +146,7 @@
                         <div id="ocr-status" class="ocr-status">Aponte a câmera para a nota fiscal para pré-preenchimento (exige revisão humana).</div>
 
                         <div id="ocr-preview-container" class="ocr-preview-box">
-                            <h4 style="margin-bottom: 10px; color: var(--text-light);">Revisão dos Dados Extraídos</h4>
+                            <h4 style="margin-bottom: 10px; color: var(--text-main);">Revisão dos Dados Extraídos</h4>
                             <div class="grid-form" style="margin-bottom: 10px;">
                                 <div>
                                     <label>Descrição:</label>
@@ -158,7 +158,7 @@
                                 </div>
                             </div>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <button type="button" id="btn-confirm-ocr" class="btn-primary" style="background-color: var(--success); padding: 8px 16px;">✅ Confirmar e Lançar Saída</button>
+                                <button type="button" id="btn-confirm-ocr" class="btn-primary" style="background: var(--success); padding: 8px 16px;">✅ Confirmar e Lançar Saída</button>
                                 <button type="button" id="btn-cancel-ocr" class="btn-outline" style="border-color: var(--danger); color: var(--danger); padding: 8px 16px;">❌ Descartar</button>
                             </div>
                         </div>
@@ -253,13 +253,13 @@
                 </section>
             </div>
 
-            <footer style="text-align: center; padding: 20px; font-size: 0.82rem; color: var(--text-muted); border-top: 1px solid rgba(138, 182, 193, 0.1); margin-top: auto;">
+            <footer style="text-align: center; padding: 20px; font-size: 0.82rem; color: var(--text-muted); border-top: 1px solid var(--panel-border); margin-top: auto;">
                 © 2026 Áudio S.A. - Smart Hospital Command Edition | Desenvolvido por <b>ayrandev</b>
             </footer>
         </main>
     </div>
 
-    <!-- Modal de Alteração de Senha -->
+    <!-- MODAL DE ALTERAÇÃO DE SENHA -->
     <div id="modal-senha" class="modal-overlay hidden">
         <div class="modal-card">
             <h3>Alterar Senha de Acesso</h3>
