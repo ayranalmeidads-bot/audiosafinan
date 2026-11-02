@@ -21,6 +21,7 @@
 body {
     background-color: var(--light-bg);
     color: var(--text-dark);
+    -webkit-tap-highlight-color: transparent;
 }
 
 .hidden { display: none !important; }
@@ -77,18 +78,20 @@ body {
     display: flex;
 }
 
-.auth-form input, select {
+.auth-form input, select, textarea {
     padding: 12px 15px;
     border: 1px solid #d0dce3;
     border-radius: 8px;
-    font-size: 0.95em;
+    font-size: 1rem;
     outline: none;
     background-color: #fafcfc;
+    width: 100%;
 }
 
 .auth-form input:focus, select:focus {
     border-color: var(--accent);
     background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(44, 140, 158, 0.15);
 }
 
 .btn-primary {
@@ -97,11 +100,12 @@ body {
     padding: 12px;
     border: none;
     border-radius: 8px;
-    font-size: 1em;
+    font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 4px 12px rgba(44, 140, 158, 0.3);
+    min-height: 44px; /* Touch target otimizado para mobile */
 }
 
 .btn-primary:hover {
@@ -112,11 +116,13 @@ body {
 .top-bar {
     background-color: var(--primary);
     color: var(--text-light);
-    padding: 18px 24px;
+    padding: 16px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 3px solid var(--accent);
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
 .logo-area {
@@ -126,17 +132,18 @@ body {
 }
 
 .brand-logo { max-height: 38px; width: auto; }
-.brand-title { font-size: 1.25rem; font-weight: bold; letter-spacing: -0.5px; }
+.brand-title { font-size: 1.2rem; font-weight: bold; letter-spacing: -0.5px; }
 
 .btn-logout {
     background: transparent;
     border: 1px solid var(--accent);
     color: var(--accent-light);
-    padding: 6px 14px;
+    padding: 8px 14px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
     transition: background 0.2s;
+    min-height: 40px;
 }
 .btn-logout:hover { background: rgba(44, 140, 158, 0.2); }
 
@@ -149,12 +156,13 @@ body {
     gap: 20px;
 }
 
-/* SISTEMA DE ABAS / NAVEGAÇÃO */
+/* SISTEMA DE ABAS / NAVEGAÇÃO RESPONSIVA */
 .nav-tabs {
     display: flex;
     gap: 10px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
+    margin-bottom: 5px;
+    overflow-x: auto;
+    padding-bottom: 5px;
 }
 
 .tab-btn {
@@ -167,6 +175,8 @@ body {
     cursor: pointer;
     box-shadow: var(--card-shadow);
     transition: all 0.2s;
+    white-space: nowrap;
+    min-height: 44px;
 }
 
 .tab-btn.active {
@@ -274,6 +284,7 @@ body {
     font-weight: bold;
     font-size: 0.95em;
     transition: background 0.2s;
+    min-height: 44px;
 }
 .btn-secondary:hover { background: #237280; }
 
@@ -294,6 +305,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     transition: all 0.2s;
+    min-height: 40px;
 }
 .btn-outline:hover { background: var(--primary); color: white; }
 
@@ -303,6 +315,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+    min-width: 600px;
 }
 
 table th, table td {
@@ -317,13 +330,14 @@ table th {
     font-weight: 700;
 }
 
-/* Modal de senha */
+/* Modal */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5);
     display: flex; justify-content: center; align-items: center;
     z-index: 999;
+    padding: 16px;
 }
 .modal-card {
     background: #fff;
@@ -331,4 +345,9 @@ table th {
     border-radius: 12px;
     width: 100%; max-width: 380px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+@media(max-width: 768px) {
+    .top-bar { flex-direction: column; align-items: stretch; text-align: center; }
+    .logo-area { justify-content: center; }
 }

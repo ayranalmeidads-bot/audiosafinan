@@ -5,13 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Áudio S.A. - Sistema Financeiro Oficial</title>
     
-    <!-- CSS Principal -->
     <link rel="stylesheet" href="style.css">
-    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    <!-- Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- jsPDF para relatórios -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <meta name="theme-color" content="#123746">
@@ -19,9 +15,6 @@
 </head>
 <body>
 
-    <!-- ========================================== -->
-    <!-- TELA DE AUTENTICAÇÃO                       -->
-    <!-- ========================================== -->
     <section id="auth-screen" class="screen active">
         <div class="auth-card">
             <div class="logo-container">
@@ -49,23 +42,20 @@
 
             <form id="form-alterar-primeiro-acesso" class="auth-form" style="display: none;">
                 <h3>Alterar Senha Temporária</h3>
-                <p style="font-size: 0.85rem; color: var(--danger); margin-bottom: 10px;">Por segurança, altere a sua senha padrão no primeiro acesso.</p>
+                <p style="font-size: 0.85rem; color: var(--danger); margin-bottom: 10px;">Por segurança e conformidade, defina uma nova senha pessoal (mínimo de 8 caracteres).</p>
                 <div class="campo">
                     <label>Nova Senha</label>
-                    <input type="password" id="nova-senha-1" required>
+                    <input type="password" id="nova-senha-1" required minlength="8">
                 </div>
                 <div class="campo">
                     <label>Confirme a Nova Senha</label>
-                    <input type="password" id="nova-senha-2" required>
+                    <input type="password" id="nova-senha-2" required minlength="8">
                 </div>
                 <button type="submit" class="btn-primary" style="background: var(--success); margin-top: 10px;">Salvar e Entrar</button>
             </form>
         </div>
     </section>
 
-    <!-- ========================================== -->
-    <!-- PAINEL PRINCIPAL (DASHBOARD EXECUTIVO)     -->
-    <!-- ========================================== -->
     <div id="app-dashboard" class="app-container hidden">
         
         <header class="top-bar">
@@ -73,24 +63,23 @@
                 <img src="logo.png" alt="Logo Áudio S.A." class="brand-logo clinica-logo-img" onerror="this.style.display='none'">
                 <span class="brand-title">Áudio S.A. — Gestão Financeira</span>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <span id="user-role-badge" style="font-size: 0.8rem; background: rgba(255,255,255,0.15); padding: 5px 10px; border-radius: 6px;"></span>
-                <button id="btn-abrir-modal-senha" class="btn-logout" style="border-color: var(--accent-light);">Alterar Senha</button>
+                <button id="btn-abrir-modal-senha" class="btn-logout">Alterar Senha</button>
                 <button id="btn-logout" class="btn-logout">Sair</button>
             </div>
         </header>
 
         <main class="main-content">
             
-            <!-- Ações Rápidas de Navegação (Abas) -->
             <div class="nav-tabs">
                 <button id="tab-btn-dashboard" class="tab-btn active" onclick="mudarAba('dashboard')">📊 Dashboard Executivo</button>
                 <button id="tab-btn-lancamento" class="tab-btn" onclick="mudarAba('lancamento')">➕ Novo Lançamento</button>
                 <button id="tab-btn-historico" class="tab-btn" onclick="mudarAba('historico')">📋 Histórico e Gestão</button>
             </div>
 
-            <!-- ABA 1: DASHBOARD VISUAL (PRIMEIRA TELA) -->
-            <div id=" aba-dashboard" class="tab-content active-tab">
+            <!-- ABA 1: DASHBOARD -->
+            <div id="aba-dashboard" class="tab-content active-tab">
                 <section class="kpi-grid">
                     <div class="kpi-card in">
                         <span>Recebimento Bruto</span>
@@ -122,18 +111,17 @@
                 </div>
             </div>
 
-            <!-- ABA 2: NOVO LANÇAMENTO & OCR -->
+            <!-- ABA 2: LANÇAMENTO & OCR -->
             <div id="aba-lancamento" class="tab-content" style="display: none;">
-                <!-- Módulo OCR para Gerente e Analista -->
                 <section id="secao-ocr" class="card-section" style="margin-bottom: 20px;">
-                    <h3>Escanear Nota Fiscal de Compra (OCR Inteligente)</h3>
+                    <h3>Escanear Nota Fiscal (OCR Inteligente Assistido)</h3>
                     <div class="ocr-box">
                         <input type="file" id="ocr-file-input" accept="image/*" capture="environment" style="display: none;">
                         <div class="ocr-actions-group">
                             <button type="button" id="btn-trigger-camera" class="btn-secondary">📸 Tirar Foto da Nota</button>
                             <button type="button" id="btn-trigger-gallery" class="btn-outline">📂 Escolher da Galeria</button>
                         </div>
-                        <div id="ocr-status" class="ocr-status">Aponte a câmara para a nota fiscal para preenchimento assistido.</div>
+                        <div id="ocr-status" class="ocr-status">Aponte a câmera para a nota fiscal para pré-preenchimento (exige revisão humana).</div>
 
                         <div id="ocr-preview-container" class="ocr-preview-box">
                             <h4 style="margin-bottom: 10px; color: var(--primary);">Revisão dos Dados Extraídos</h4>
@@ -147,7 +135,7 @@
                                     <input type="number" step="0.01" id="ocr-prev-val" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 10px;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button type="button" id="btn-confirm-ocr" class="btn-primary" style="background-color: var(--success); padding: 8px 16px;">✅ Confirmar e Lançar Saída</button>
                                 <button type="button" id="btn-cancel-ocr" class="btn-outline" style="border-color: var(--danger); color: var(--danger); padding: 8px 16px;">❌ Descartar</button>
                             </div>
@@ -196,16 +184,15 @@
                         <div class="campo" id="campo-pagamento">
                             <label>Forma de Pagamento</label>
                             <select id="t-forma-pagamento">
-                                <option value="PIX">PIX / Dinheiro / Boleto (Sem taxa)</option>
+                                <option value="PIX">PIX / Dinheiro / Boleto</option>
                                 <option value="Débito">Cartão de Débito</option>
                                 <option value="Crédito à vista">Crédito à vista</option>
                                 <option value="Crédito Parcelado">Crédito Parcelado (2x a 12x)</option>
                             </select>
                         </div>
 
-                        <!-- Visível APENAS em Entradas para cálculo de taxas de cartão da operadora -->
                         <div class="campo" id="campo-bandeira">
-                            <label>Bandeira / Taxa de Cartão (Apenas Entradas)</label>
+                            <label>Bandeira / Taxa de Cartão</label>
                             <select id="t-bandeira">
                                 <option value="">Sem taxa de cartão / Outros</option>
                             </select>
@@ -216,7 +203,7 @@
                 </section>
             </div>
 
-            <!-- ABA 3: HISTÓRICO E GESTÃO -->
+            <!-- ABA 3: HISTÓRICO -->
             <div id="aba-historico" class="tab-content" style="display: none;">
                 <section class="card-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
@@ -238,9 +225,7 @@
                                     <th id="th-acoes" style="display: none;">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="transacoes-list">
-                                <!-- Preenchido dinamicamente via JS -->
-                            </tbody>
+                            <tbody id="transacoes-list"></tbody>
                         </table>
                     </div>
                 </section>
@@ -248,7 +233,6 @@
 
         </main>
 
-        <!-- Modal de Alteração de Senha -->
         <div id="modal-senha" class="modal-overlay hidden">
             <div class="modal-card">
                 <h3>Alterar Senha de Acesso</h3>
@@ -258,8 +242,8 @@
                         <input type="password" id="modal-senha-atual" required>
                     </div>
                     <div class="campo">
-                        <label>Nova Senha</label>
-                        <input type="password" id="modal-senha-nova" required>
+                        <label>Nova Senha (mín. 8 caracteres)</label>
+                        <input type="password" id="modal-senha-nova" required minlength="8">
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <button type="submit" class="btn-primary" style="flex: 1;">Atualizar Senha</button>
