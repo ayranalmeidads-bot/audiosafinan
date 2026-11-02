@@ -470,10 +470,35 @@ formTransacao?.addEventListener('submit', async (e) => {
         registrarLogAuditoria("EDIÇÃO_LANÇAMENTO", `Lançamento ID ${editId} modificado.`);
         cancelarEdicao();
     } else {
-        transacoes.unshift(transacaoObj);
+        // Envio estruturado com validação e fallback síncrono para o Supabase
         if (supabase10) {
-            await supabase10.from('transacoes').insert([transacaoObj]).catch(() => {});
+            try {
+                const { data, error } = await supabase10
+                    .from('transacoes')
+                    .insert([transacaoObj])
+                    .select();
+
+                if (error) {
+                    throw error;
+                }
+
+                if (!data || data.length === 0) {
+                    throw new Error("O banco não confirmou o registro.");
+                }
+
+                transacoes.unshift(data[0]);
+            } catch (erro) {
+                console.error("Erro ao salvar lançamento no Supabase:", erro);
+                alert(
+                    "Não foi possível salvar o lançamento no banco de dados.\n\n" +
+                    "Verifique sua conexão ou entre em contato com o administrador."
+                );
+                return;
+            }
+        } else {
+            transacoes.unshift(transacaoObj);
         }
+
         registrarLogAuditoria("NOVO_LANÇAMENTO", `Novo lançamento registrado: R$ ${valorLiquido.toFixed(2)} (${tipo})`);
     }
 
