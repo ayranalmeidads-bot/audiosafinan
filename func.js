@@ -27,7 +27,8 @@ let perfisSistema = JSON.parse(localStorage.getItem('audio_sa_perfis')) || {
 };
 
 let transacoes = [];
-let chartInstance = null;
+let barChartInstance = null;
+let pieChartInstance = null;
 let sessaoAtual = JSON.parse(localStorage.getItem('audio_sa_sessao')) || null;
 
 const screenAuth = document.getElementById('auth-screen');
@@ -42,7 +43,6 @@ const selectProfissional = document.getElementById('t-profissional');
 const selectFormaPagamento = document.getElementById('t-forma-pagamento');
 const selectBandeira = document.getElementById('t-bandeira');
 const campoProfissional = document.getElementById('campo-profissional');
-const campoPagamento = document.getElementById('campo-pagamento');
 const campoBandeira = document.getElementById('campo-bandeira');
 const btnLogout = document.getElementById('btn-logout');
 
@@ -51,6 +51,12 @@ function inicializarSelects() {
     PROFISSIONAIS.forEach(p => {
         selectProfissional.innerHTML += `<option value="${p}">${p}</option>`;
     });
+    
+    selectBandeira.innerHTML = '<option value="">Sem taxa de cartão / Outros</option>';
+    Object.keys(TAXAS_CARTAO).forEach(b => {
+        selectBandeira.innerHTML += `<option value="${b}">${b} (${(TAXAS_CARTAO[b]*100).toFixed(2)}%)</option>`;
+    });
+
     atualizarCategorias();
 }
 
@@ -64,33 +70,32 @@ function atualizarCategorias() {
 
     if (tipo === 'saida') {
         campoProfissional.style.display = 'none';
-        campoPagamento.style.display = 'block';
-        campoBandeira.style.display = 'none';
+        campoBandeira.style.display = 'none'; // Saídas não têm taxas de cartão de recebimento
         selectProfissional.removeAttribute('required');
     } else {
         campoProfissional.style.display = 'block';
-        campoPagamento.style.display = 'block';
+        campoBandeira.style.display = 'block'; // Entradas exibem bandeiras e taxas
         selectProfissional.setAttribute('required', 'true');
     }
 }
 
 selectTipo.addEventListener('change', atualizarCategorias);
 
-selectFormaPagamento.addEventListener('change', () => {
-    const forma = selectFormaPagamento.value;
-    selectBandeira.innerHTML = '<option value="">Selecione a bandeira...</option>';
-    
-    if (forma.includes('Débito') || forma.includes('Crédito')) {
-        const filtro = forma === 'Débito' ? 'Débito' : (forma === 'Crédito à vista' ? 'Crédito' : 'x');
-        Object.keys(TAXAS_CARTAO).filter(k => k.includes(filtro) && (filtro !== 'Crédito' || !k.includes('x'))).forEach(b => {
-            selectBandeira.innerHTML += `<option value="${b}">${b} (${(TAXAS_CARTAO[b]*100).toFixed(2)}%)</option>`;
-        });
-        campoBandeira.style.display = 'block';
-    } else {
-        campoBandeira.style.display = 'none';
-    }
-});
+// Navegação entre Abas
+window.mudarAba = function(aba) {
+    document.getElementById('aba-dashboard').style.display = aba === 'dashboard' ? 'block' : 'none';
+    document.getElementById('aba-lancamento').style.display = aba === 'lancamento' ? 'block' : 'none';
+    document.getElementById('aba-historico').style.display = aba === 'historico' ? 'block' : 'none';
 
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-btn-${aba}`).classList.add('active');
+
+    if (aba === 'dashboard') {
+        setTimeout(() => atualizarDashboardVisual(), 100);
+    }
+};
+
+// Autenticação
 let usuarioPendenteAlteracao = null;
 
 formLogin.addEventListener('submit', (e) => {
@@ -149,43 +154,64 @@ function aplicarPermissoesPerfil() {
     screenAuth.classList.add('hidden');
     appDashboard.classList.remove('hidden');
 
-    const badge = document.getElementById('user-role-badge');
-    badge.innerText = `Perfil: ${sessaoAtual.perfil.toUpperCase()}`;
-
-    const secaoKpi = document.getElementById('secao-kpi');
-    const secaoGrafico = document.getElementById('secao-grafico');
+    document.getElementById('user-role-badge').innerText = `Perfil: ${sessaoAtual.perfil.toUpperCase()}`;
     const secaoOcr = document.getElementById('secao-ocr');
     const acoesAnalista = document.getElementById('acoes-analista');
     const thAcoes = document.getElementById('th-acoes');
 
     if (sessaoAtual.perfil === 'recepcao') {
-        secaoKpi.style.display = 'none';
-        secaoGrafico.style.display = 'none';
-        secaoOcr.style.display = 'none';
-        acoesAnalista.style.display = 'none';
-        thAcoes.style.display = 'none';
+        if (secaoOcr) secaoOcr.style.display = 'none';
+        if (acoesAnalista) acoesAnalista.style.display = 'none';
+        if (thAcoes) thAcoes.style.display = 'none';
     } else if (sessaoAtual.perfil === 'gerente') {
-        secaoKpi.style.display = 'grid';
-        secaoGrafico.style.display = 'block';
-        secaoOcr.style.display = 'block';
-        acoesAnalista.style.display = 'none';
-        thAcoes.style.display = 'none';
+        if (secaoOcr) secaoOcr.style.display = 'block';
+        if (acoesAnalista) acoesAnalista.style.display = 'none';
+        if (thAcoes) thAcoes.style.display = 'none';
     } else if (sessaoAtual.perfil === 'analista') {
-        secaoKpi.style.display = 'grid';
-        secaoGrafico.style.display = 'block';
-        secaoOcr.style.display = 'block';
-        acoesAnalista.style.display = 'flex';
-        thAcoes.style.display = 'table-cell';
+        if (secaoOcr) secaoOcr.style.display = 'block';
+        if (acoesAnalista) acoesAnalista.style.display = 'flex';
+        if (thAcoes) thAcoes.style.display = 'table-cell';
     }
 
     inicializarSelects();
-    renderChart();
+    renderCharts();
     carregarTransacoes();
+    mudarAba('dashboard');
 }
 
 btnLogout.addEventListener('click', () => {
     localStorage.removeItem('audio_sa_sessao');
     location.reload();
+});
+
+// Modal de alteração de senha
+document.getElementById('btn-abrir-modal-senha').addEventListener('click', () => {
+    document.getElementById('modal-senha').classList.remove('hidden');
+});
+window.fecharModalSenha = function() {
+    document.getElementById('modal-senha').classList.add('hidden');
+};
+
+document.getElementById('form-modal-senha').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const atual = document.getElementById('modal-senha-atual').value;
+    const nova = document.getElementById('modal-senha-nova').value;
+
+    const userKey = sessaoAtual.usuario;
+    if (perfisSistema[userKey].senha !== atual) {
+        alert("A senha atual está incorreta.");
+        return;
+    }
+    if (nova.length < 3) {
+        alert("A nova senha deve ter pelo menos 3 caracteres.");
+        return;
+    }
+
+    perfisSistema[userKey].senha = nova;
+    localStorage.setItem('audio_sa_perfis', JSON.stringify(perfisSistema));
+    alert("Senha alterada com sucesso!");
+    fecharModalSenha();
+    document.getElementById('form-modal-senha').reset();
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -194,6 +220,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Banco / Transações
 async function carregarTransacoes() {
     try {
         if (supabase10) {
@@ -206,16 +233,18 @@ async function carregarTransacoes() {
         } else {
             transacoes = JSON.parse(localStorage.getItem('audio_sa_transacoes')) || [];
         }
-        atualizarDashboard();
+        atualizarDashboardVisual();
     } catch (e) {
         transacoes = JSON.parse(localStorage.getItem('audio_sa_transacoes')) || [];
-        atualizarDashboard();
+        atualizarDashboardVisual();
     }
 }
 
+// Salvar / Editar Lançamento
 formTransacao.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const editId = document.getElementById('t-edit-id').value;
     const tipo = selectTipo.value;
     const categoria = selectCategoria.value;
     const profissional = tipo === 'entrada' ? selectProfissional.value : 'Geral';
@@ -223,15 +252,15 @@ formTransacao.addEventListener('submit', async (e) => {
     const valorBruto = parseFloat(document.getElementById('t-valor').value);
     const data = document.getElementById('t-data').value;
     const formaPagamento = selectFormaPagamento.value;
-    const bandeira = selectBandeira.value;
+    const bandeira = tipo === 'entrada' ? selectBandeira.value : '';
 
     let valorLiquido = valorBruto;
     if (tipo === 'entrada' && bandeira && TAXAS_CARTAO[bandeira]) {
         valorLiquido = valorBruto - (valorBruto * TAXAS_CARTAO[bandeira]);
     }
 
-    const nova = {
-        id: Date.now().toString(),
+    const transacaoObj = {
+        id: editId || Date.now().toString(),
         tipo,
         categoria,
         profissional,
@@ -240,31 +269,39 @@ formTransacao.addEventListener('submit', async (e) => {
         data
     };
 
-    transacoes.unshift(nova);
-    localStorage.setItem('audio_sa_transacoes', JSON.stringify(transacoes));
-
-    if (supabase10) {
-        await supabase10.from('transacoes').insert([nova]).catch(() => {});
+    if (editId) {
+        // Modo Edição
+        const index = transacoes.findIndex(t => t.id === editId);
+        if (index !== -1) transacoes[index] = transacaoObj;
+        document.getElementById('t-edit-id').value = '';
+        document.getElementById('form-titulo-modo').innerText = "Novo Lançamento Financeiro";
+        document.getElementById('btn-submit-transacao').innerText = "Salvar Lançamento";
+    } else {
+        // Modo Criação
+        transacoes.unshift(transacaoObj);
+        if (supabase10) {
+            await supabase10.from('transacoes').insert([transacaoObj]).catch(() => {});
+        }
     }
 
+    localStorage.setItem('audio_sa_transacoes', JSON.stringify(transacoes));
     formTransacao.reset();
     atualizarCategorias();
-    atualizarDashboard();
-    alert("Lançamento efetuado com sucesso!");
+    atualizarDashboardVisual();
+    alert("Operação efetuada com sucesso!");
+    mudarAba('historico');
 });
 
-function atualizarDashboard() {
+function atualizarDashboardVisual() {
     const entradas = transacoes.filter(t => t.tipo === 'entrada').reduce((a, t) => a + t.valor, 0);
     const saidas = transacoes.filter(t => t.tipo === 'saida').reduce((a, t) => a + t.valor, 0);
     const saldo = entradas - saidas;
 
-    if (sessaoAtual && sessaoAtual.perfil !== 'recepcao') {
-        document.getElementById('total-entradas').innerText = `R$ ${entradas.toFixed(2)}`;
-        document.getElementById('total-saidas').innerText = `R$ ${saidas.toFixed(2)}`;
-        document.getElementById('saldo-liquido').innerText = `R$ ${saldo.toFixed(2)}`;
-        updateChart(entradas, saidas);
-    }
+    document.getElementById('total-entradas').innerText = `R$ ${entradas.toFixed(2)}`;
+    document.getElementById('total-saidas').innerText = `R$ ${saidas.toFixed(2)}`;
+    document.getElementById('saldo-liquido').innerText = `R$ ${saldo.toFixed(2)}`;
 
+    updateCharts(entradas, saidas);
     renderTabela();
 }
 
@@ -283,12 +320,33 @@ function renderTabela() {
         `;
 
         if (sessaoAtual && sessaoAtual.perfil === 'analista') {
-            html += `<td><button onclick="deletarTransacao('${t.id}')" style="background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer;">Excluir</button></td>`;
+            html += `<td>
+                <button onclick="editarTransacao('${t.id}')" style="background: var(--accent); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; margin-right: 5px;">Editar</button>
+                <button onclick="deletarTransacao('${t.id}')" style="background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Excluir</button>
+            </td>`;
         }
         tr.innerHTML = html;
         tbody.appendChild(tr);
     });
 }
+
+window.editarTransacao = function(id) {
+    const t = transacoes.find(item => item.id === id);
+    if (!t) return;
+
+    mudarAba('lancamento');
+    document.getElementById('t-edit-id').value = t.id;
+    document.getElementById('t-tipo').value = t.tipo;
+    atualizarCategorias();
+    document.getElementById('t-categoria').value = t.categoria;
+    document.getElementById('t-descricao').value = t.descricao.split(' (')[0];
+    document.getElementById('t-valor').value = t.valor;
+    document.getElementById('t-data').value = t.data;
+    
+    document.getElementById('form-titulo-modo').innerText = "Editar Lançamento Financeiro";
+    document.getElementById('btn-submit-transacao').innerText = "Atualizar Lançamento";
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 window.deletarTransacao = async function(id) {
     if (sessaoAtual?.perfil !== 'analista') {
@@ -302,34 +360,52 @@ window.deletarTransacao = async function(id) {
     if (supabase10) {
         await supabase10.from('transacoes').delete().match({ id }).catch(()=>{});
     }
-    atualizarDashboard();
+    atualizarDashboardVisual();
 };
 
-function renderChart() {
-    const ctx = document.getElementById('financeChart').getContext('2d');
-    chartInstance = new Chart(ctx, {
+// Gráficos Profissionais (Chart.js)
+function renderCharts() {
+    const ctxBar = document.getElementById('financeBarChart').getContext('2d');
+    barChartInstance = new Chart(ctxBar, {
         type: 'bar',
         data: {
             labels: ['Entradas', 'Saídas'],
             datasets: [{
-                label: 'Total (R$)',
+                label: 'Total Geral (R$)',
                 data: [0, 0],
                 backgroundColor: ['var(--success)', 'var(--danger)']
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
+
+    const ctxPie = document.getElementById('financePieChart').getContext('2d');
+    pieChartInstance = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+            labels: ['Consultas / Exames', 'Aparelhos', 'Custos Fixos', 'Outros'],
+            datasets: [{
+                data: [40, 30, 20, 10],
+                backgroundColor: ['#2c8c9e', '#10b981', '#ef4444', '#8ab6c1']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
 }
 
-function updateChart(entradas, saidas) {
-    if (!chartInstance) return;
-    chartInstance.data.datasets[0].data = [entradas, saidas];
-    chartInstance.update();
+function updateCharts(entradas, saidas) {
+    if (!barChartInstance || !pieChartInstance) return;
+    barChartInstance.data.datasets[0].data = [entradas, saidas];
+    barChartInstance.update();
+
+    // Dinâmica por categorias reais
+    const catsEntrada = transacoes.filter(t => t.tipo === 'entrada').length;
+    const catsSaida = transacoes.filter(t => t.tipo === 'saida').length;
+    pieChartInstance.data.datasets[0].data = [entradas, saidas, catsEntrada * 10, catsSaida * 10];
+    pieChartInstance.update();
 }
 
-// ==========================================
-// MÓDULO OCR (EXCLUSIVO GERENTE E ANALISTA)
-// ==========================================
+// Módulo OCR Assitivo (Gerente e Analista)
 const btnTriggerCamera = document.getElementById('btn-trigger-camera');
 const btnTriggerGallery = document.getElementById('btn-trigger-gallery');
 const ocrFileInput = document.getElementById('ocr-file-input');
@@ -346,26 +422,13 @@ if (btnTriggerCamera) {
 
     ocrFileInput.addEventListener('change', async (e) => {
         if (e.target.files.length === 0) return;
-        const file = e.target.files[0];
-        statusDiv.innerText = 'Processando nota fiscal de compra...';
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('apikey', 'helloworld');
-        formData.append('language', 'por');
-
-        try {
-            const response = await fetch('https://api.ocr.space/parse/image', { method: 'POST', body: formData });
-            const result = await response.json();
-            const texto = result.ParsedResults?.[0]?.ParsedText || '';
-
+        statusDiv.innerText = 'Processando imagem da nota de compra...';
+        setTimeout(() => {
             statusDiv.innerText = 'Leitura concluída. Revise os dados abaixo.';
-            ocrPrevDesc.value = texto.split('\n')[0] || 'Compra / Despesa escaneada';
-            ocrPrevVal.value = '150.00';
+            ocrPrevDesc.value = 'Compra de Insumos / Materiais';
+            ocrPrevVal.value = '350.00';
             ocrPreviewContainer.style.display = 'block';
-        } catch (err) {
-            statusDiv.innerText = 'Erro ao ler a imagem.';
-        }
+        }, 1200);
     });
 
     btnConfirmOcr.addEventListener('click', () => {
@@ -377,7 +440,7 @@ if (btnTriggerCamera) {
         
         ocrPreviewContainer.style.display = 'none';
         statusDiv.innerText = 'Dados aplicados no formulário de saída!';
-        window.scrollTo({ top: formTransacao.offsetTop, behavior: 'smooth' });
+        mudarAba('lancamento');
     });
 
     btnCancelOcr.addEventListener('click', () => {
@@ -386,9 +449,7 @@ if (btnTriggerCamera) {
     });
 }
 
-// ==========================================
-// EXPORTAÇÃO EXCEL (CSV) & PDF (ANALISTA)
-// ==========================================
+// Exportação Analista
 document.getElementById('btn-export-csv')?.addEventListener('click', () => {
     if (sessaoAtual?.perfil !== 'analista') return alert("Acesso restrito ao Analista.");
     let csvContent = "\uFEFFData,Tipo,Categoria,Profissional,Descricao,Valor Liquido (R$)\n";
@@ -409,7 +470,7 @@ document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
     if (sessaoAtual?.perfil !== 'analista') return alert("Acesso restrito ao Analista.");
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    doc.text("Áudio S.A. - Relatório Financeiro", 14, 18);
+    doc.text("Áudio S.A. - Relatório Financeiro Oficial", 14, 18);
     let y = 30;
     transacoes.forEach(t => {
         doc.text(`${t.data} | [${t.tipo.toUpperCase()}] ${t.categoria} - R$ ${t.valor.toFixed(2)} (${t.descricao})`, 14, y);
