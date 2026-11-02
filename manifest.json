@@ -1,6 +1,6 @@
 {
   "short_name": "Áudio S.A.",
-  "name": "Áudio S.A. - Smart Financial Command",
+  "name": "Áudio S.A. - Gestão Financeira Clínica",
   "icons": [
     {
       "src": "logo.png",
@@ -14,8 +14,8 @@
     }
   ],
   "start_url": "./index.html",
-  "background_color": "#07141b",
-  "theme_color": "#07141b",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0284c7",
   "display": "standalone",
   "orientation": "portrait"
 }

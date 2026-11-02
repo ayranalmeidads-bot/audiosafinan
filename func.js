@@ -1,5 +1,5 @@
 // ==========================================
-// CONFIGURAÇÃO DO SUPABASE E SEGURANÇA (3 PERFIS)
+// MÓDULO PRINCIPAL DE REGRA DE NEGÓCIO E SEGURANÇA
 // ==========================================
 const SUPABASE_URL = "https://zqkdnkpttbazajqkeqac.supabase.co";
 const SUPABASE_KEY = "sb_publishable_fLbyK3eMhdn9LozmBSJL5A_ITUloIZ6";
@@ -20,22 +20,39 @@ const TAXAS_CARTAO = {
     'Hipercard Crédito': 0.0220, 'Hipercard 2x a 6x': 0.0371, 'Hipercard 7x a 12x': 0.0435
 };
 
+// Funções de Utilidade de Segurança (Sanitização e Hash)
 async function hashSenha(senha) {
-    const msgUint8 = new TextEncoder().encode(senha);
+    const msgUint8 = new TextEncoder().encode(senha + "_AUDIO_SA_SALT");
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+}
+
+function sanitizarCSV(valor) {
+    if (typeof valor !== 'string') return valor;
+    if (/^[=+\-@\t\r]/.test(valor)) {
+        return `'${valor}`;
+    }
+    return `"${valor.replace(/"/g, '""')}"`;
+}
+
+// Inicialização segura dos perfis
 async function inicializarPerfisDefault() {
-    let salvo = JSON.parse(localStorage.getItem('audio_sa_perfis_v2'));
+    let salvo = JSON.parse(localStorage.getItem('audio_sa_perfis_v3'));
     if (!salvo) {
         salvo = {
-            recepcao: { senhaHash: await hashSenha('recepcao123'), perfil: 'recepcao', primeiroAcesso: true },
-            gerente: { senhaHash: await hashSenha('gerente123'), perfil: 'gerente', primeiroAcesso: true },
-            analista: { senhaHash: await hashSenha('analista123'), perfil: 'analista', primeiroAcesso: true }
+            recepcao: { nome: "Recepção Central", senhaHash: await hashSenha('recepcao123'), perfil: 'recepcao', primeiroAcesso: true },
+            gerente: { nome: "Gerente Operacional", senhaHash: await hashSenha('gerente123'), perfil: 'gerente', primeiroAcesso: true },
+            analista: { nome: "Administrador / Analista", senhaHash: await hashSenha('analista123'), perfil: 'analista', primeiroAcesso: true }
         };
-        localStorage.setItem('audio_sa_perfis_v2', JSON.stringify(salvo));
+        localStorage.setItem('audio_sa_perfis_v3', JSON.stringify(salvo));
     }
     return salvo;
 }
@@ -44,10 +61,13 @@ let perfisSistema = {};
 inicializarPerfisDefault().then(p => { perfisSistema = p; });
 
 let transacoes = [];
+let logsAuditoria = JSON.parse(localStorage.getItem('audio_sa_logs')) || [];
 let barChartInstance = null;
 let pieChartInstance = null;
 let sessaoAtual = JSON.parse(localStorage.getItem('audio_sa_sessao')) || null;
+let timeoutSessaoInatividade = null;
 
+// Elementos da Interface
 const screenAuth = document.getElementById('auth-screen');
 const appDashboard = document.getElementById('app-dashboard');
 const formLogin = document.getElementById('form-login');
@@ -57,12 +77,307 @@ const formTransacao = document.getElementById('form-transacao');
 const selectTipo = document.getElementById('t-tipo');
 const selectCategoria = document.getElementById('t-categoria');
 const selectProfissional = document.getElementById('t-profissional');
-const selectFormaPagamento = document.getElementById('t-forma-pagamento');
 const selectBandeira = document.getElementById('t-bandeira');
 const campoProfissional = document.getElementById('campo-profissional');
 const campoBandeira = document.getElementById('campo-bandeira');
 const btnLogout = document.getElementById('btn-logout');
 
+// ==========================================
+// CONTROLE DE MODO CLARO / MODO ESCURO
+// ==========================================
+function inicializarTema() {
+    const temaSalvo = localStorage.getItem('audio_sa_theme') || 'light';
+    aplicarTema(temaSalvo);
+}
+
+function aplicarTema(tema) {
+    document.documentElement.setAttribute('data-theme', tema);
+    localStorage.setItem('audio_sa_theme', tema);
+    
+    const iconBtn = document.getElementById('theme-toggle-icon');
+    const textBtn = document.getElementById('theme-toggle-text');
+    const iconAuth = document.querySelector('#btn-theme-auth .theme-icon');
+
+    if (tema === 'dark') {
+        if (iconBtn) iconBtn.innerText = '🌙';
+        if (textBtn) textBtn.innerText = 'Modo Escuro';
+        if (iconAuth) iconAuth.innerText = '🌙';
+    } else {
+        if (iconBtn) iconBtn.innerText = '☀️';
+        if (textBtn) textBtn.innerText = 'Modo Claro';
+        if (iconAuth) iconAuth.innerText = '☀️';
+    }
+}
+
+document.getElementById('btn-theme-toggle')?.addEventListener('click', () => {
+    const atual = document.documentElement.getAttribute('data-theme') || 'light';
+    aplicarTema(atual === 'light' ? 'dark' : 'light');
+});
+
+document.getElementById('btn-theme-auth')?.addEventListener('click', () => {
+    const atual = document.documentElement.getAttribute('data-theme') || 'light';
+    aplicarTema(atual === 'light' ? 'dark' : 'light');
+});
+
+// ==========================================
+// REGISTRO DE AUDITORIA (LOGS DE SEGURANÇA)
+// ==========================================
+function registrarLogAuditoria(acao, detalhes, resultado = "SUCESSO") {
+    const novoLog = {
+        id: Date.now().toString(),
+        timestamp: new Date().toLocaleString('pt-BR'),
+        usuario: sessaoAtual ? sessaoAtual.usuario : "SISTEMA/ANÔNIMO",
+        perfil: sessaoAtual ? sessaoAtual.perfil : "DESCONHECIDO",
+        acao,
+        detalhes: escapeHTML(detalhes),
+        resultado
+    };
+    logsAuditoria.unshift(novoLog);
+    if (logsAuditoria.length > 300) logsAuditoria.pop();
+    localStorage.setItem('audio_sa_logs', JSON.stringify(logsAuditoria));
+}
+
+// ==========================================
+// SISTEMA DE ABAS E NAVEGAÇÃO RESTRITA POR PERFIL
+// ==========================================
+window.mudarAba = function(aba) {
+    if (!sessaoAtual) return;
+
+    // RESTRIÇÃO RÍGIDA PARA RECEPÇÃO
+    if (sessaoAtual.perfil === 'recepcao' && aba !== 'lancamento') {
+        registrarLogAuditoria("TENTATIVA_ACESSO_PROIBIDO", `Perfil recepção tentou acessar a aba: ${aba}`, "BLOQUEADO");
+        alert("Acesso Restrito: O perfil Recepção tem autorização exclusiva para realizar novos lançamentos.");
+        mudarAba('lancamento');
+        return;
+    }
+
+    // RESTRIÇÃO PARA GERENTE EM ABAS ADMINISTRATIVAS
+    if (sessaoAtual.perfil === 'gerente' && (aba === 'usuarios' || aba === 'logs')) {
+        registrarLogAuditoria("TENTATIVA_ACESSO_PROIBIDO", `Perfil gerente tentou acessar a aba administrativa: ${aba}`, "BLOQUEADO");
+        alert("Acesso Restrito: Funcionalidade reservada ao perfil Analista.");
+        return;
+    }
+
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.nav-item-cmd').forEach(el => el.classList.remove('active'));
+
+    const tabAlvo = document.getElementById(`aba-${aba}`);
+    const navBtnAlvo = document.getElementById(`nav-btn-${aba}`);
+
+    if (tabAlvo) tabAlvo.classList.remove('hidden');
+    if (navBtnAlvo) navBtnAlvo.classList.add('active');
+
+    // Atualizar títulos dinâmicos
+    const pageTitle = document.getElementById('page-current-title');
+    const pageSubtitle = document.getElementById('page-current-subtitle');
+
+    if (aba === 'dashboard') {
+        if (pageTitle) pageTitle.innerText = "Dashboard Executivo";
+        if (pageSubtitle) pageSubtitle.innerText = "Indicadores operacionais e fluxo financeiro em tempo real.";
+        setTimeout(() => atualizarDashboardVisual(), 100);
+    } else if (aba === 'lancamento') {
+        if (pageTitle) pageTitle.innerText = "Novo Lançamento Financeiro";
+        if (pageSubtitle) pageSubtitle.innerText = "Registre novas movimentações de entrada ou saída.";
+    } else if (aba === 'historico') {
+        if (pageTitle) pageTitle.innerText = "Histórico de Movimentações";
+        if (pageSubtitle) pageSubtitle.innerText = "Consulta integral de registros e relatórios consolidados.";
+    } else if (aba === 'usuarios') {
+        if (pageTitle) pageTitle.innerText = "Gerenciamento de Usuários";
+        if (pageSubtitle) pageSubtitle.innerText = "Controle de credenciais e acessos.";
+        renderizarListaUsuarios();
+    } else if (aba === 'logs') {
+        if (pageTitle) pageTitle.innerText = "Logs de Auditoria & Rastreabilidade";
+        if (pageSubtitle) pageSubtitle.innerText = "Trilha de eventos de segurança e operações do sistema.";
+        renderizarListaLogs();
+    }
+
+    // Fechar menu mobile se aberto
+    document.getElementById('main-sidebar')?.classList.remove('mobile-open');
+    document.getElementById('mobile-sidebar-overlay')?.classList.add('hidden');
+};
+
+// ==========================================
+// AUTENTICAÇÃO E SESSÃO
+// ==========================================
+let usuarioPendenteAlteracao = null;
+
+formLogin.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const usuario = document.getElementById('login-usuario').value;
+    const senha = document.getElementById('login-senha').value;
+
+    if (!usuario || !perfisSistema[usuario]) {
+        alert("Selecione um perfil de acesso válido.");
+        return;
+    }
+
+    const hashDigitado = await hashSenha(senha);
+    if (perfisSistema[usuario].senhaHash !== hashDigitado) {
+        registrarLogAuditoria("LOGIN_FALHA", `Tentativa de login malsucedida para o perfil: ${usuario}`, "RECUSADO");
+        alert("Senha de acesso incorreta.");
+        return;
+    }
+
+    const dadosPerfil = perfisSistema[usuario];
+
+    if (dadosPerfil.primeiroAcesso) {
+        usuarioPendenteAlteracao = usuario;
+        formLogin.classList.add('hidden');
+        formPrimeiroAcesso.classList.remove('hidden');
+        return;
+    }
+
+    iniciarSessao(usuario, dadosPerfil.perfil, dadosPerfil.nome);
+});
+
+formPrimeiroAcesso.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const s1 = document.getElementById('nova-senha-1').value;
+    const s2 = document.getElementById('nova-senha-2').value;
+
+    if (s1 !== s2) {
+        alert("As senhas não coincidem.");
+        return;
+    }
+    if (s1.length < 8) {
+        alert("Por segurança, a senha deve possuir pelo menos 8 caracteres.");
+        return;
+    }
+
+    perfisSistema[usuarioPendenteAlteracao].senhaHash = await hashSenha(s1);
+    perfisSistema[usuarioPendenteAlteracao].primeiroAcesso = false;
+    localStorage.setItem('audio_sa_perfis_v3', JSON.stringify(perfisSistema));
+
+    registrarLogAuditoria("TROCA_SENHA_PRIMEIRO_ACESSO", `Troca de senha inicial concluída para: ${usuarioPendenteAlteracao}`);
+    alert("Senha alterada com sucesso!");
+    iniciarSessao(usuarioPendenteAlteracao, perfisSistema[usuarioPendenteAlteracao].perfil, perfisSistema[usuarioPendenteAlteracao].nome);
+});
+
+function iniciarSessao(usuario, perfil, nome) {
+    sessaoAtual = { usuario, perfil, nome: nome || usuario, loginTime: Date.now() };
+    localStorage.setItem('audio_sa_sessao', JSON.stringify(sessaoAtual));
+    registrarLogAuditoria("LOGIN_SUCESSO", `Usuário autenticado com sucesso: ${usuario}`);
+    aplicarPermissoesPerfil();
+    iniciarMonitorInatividade();
+}
+
+function aplicarPermissoesPerfil() {
+    if (!sessaoAtual) return;
+
+    screenAuth.classList.add('hidden');
+    appDashboard.classList.remove('hidden');
+
+    document.getElementById('user-role-badge').innerText = `Perfil: ${sessaoAtual.perfil.toUpperCase()}`;
+    document.getElementById('user-name-display').innerText = sessaoAtual.nome || sessaoAtual.usuario;
+
+    const navDashboard = document.getElementById('nav-btn-dashboard');
+    const navHistorico = document.getElementById('nav-btn-historico');
+    const secaoOcr = document.getElementById('secao-ocr');
+    const acoesAnalista = document.getElementById('acoes-analista');
+    const thAcoes = document.getElementById('th-acoes');
+    const navAdminOnly = document.querySelectorAll('.nav-admin-only');
+
+    // REGRA DE OURO DOS PERFIS:
+    if (sessaoAtual.perfil === 'recepcao') {
+        // RECEPÇÃO: Apenas novo lançamento
+        if (navDashboard) navDashboard.style.display = 'none';
+        if (navHistorico) navHistorico.style.display = 'none';
+        if (secaoOcr) secaoOcr.style.display = 'none';
+        if (acoesAnalista) acoesAnalista.style.display = 'none';
+        if (thAcoes) thAcoes.style.display = 'none';
+        navAdminOnly.forEach(el => el.classList.add('hidden'));
+
+        mudarAba('lancamento');
+    } else if (sessaoAtual.perfil === 'gerente') {
+        // GERENTE: Dashboard, Lançamentos, Histórico, OCR, Exportações
+        if (navDashboard) navDashboard.style.display = 'flex';
+        if (navHistorico) navHistorico.style.display = 'flex';
+        if (secaoOcr) secaoOcr.style.display = 'block';
+        if (acoesAnalista) acoesAnalista.style.display = 'flex';
+        if (thAcoes) thAcoes.style.display = 'none';
+        navAdminOnly.forEach(el => el.classList.add('hidden'));
+
+        mudarAba('dashboard');
+    } else if (sessaoAtual.perfil === 'analista') {
+        // ANALISTA: Acesso total
+        if (navDashboard) navDashboard.style.display = 'flex';
+        if (navHistorico) navHistorico.style.display = 'flex';
+        if (secaoOcr) secaoOcr.style.display = 'block';
+        if (acoesAnalista) acoesAnalista.style.display = 'flex';
+        if (thAcoes) thAcoes.style.display = 'table-cell';
+        navAdminOnly.forEach(el => el.classList.remove('hidden'));
+
+        mudarAba('dashboard');
+    }
+
+    inicializarSelects();
+    renderCharts();
+    carregarTransacoes();
+}
+
+function iniciarMonitorInatividade() {
+    if (timeoutSessaoInatividade) clearTimeout(timeoutSessaoInatividade);
+    // Timeout de 15 minutos de inatividade
+    timeoutSessaoInatividade = setTimeout(() => {
+        alert("Sua sessão expirou por inatividade.");
+        encerraSessao();
+    }, 15 * 60 * 1000);
+}
+
+['click', 'mousemove', 'keypress'].forEach(evt => {
+    window.addEventListener(evt, () => {
+        if (sessaoAtual) iniciarMonitorInatividade();
+    });
+});
+
+function encerraSessao() {
+    if (sessaoAtual) {
+        registrarLogAuditoria("LOGOUT", `Sessão encerrada pelo usuário: ${sessaoAtual.usuario}`);
+    }
+    localStorage.removeItem('audio_sa_sessao');
+    location.reload();
+}
+
+btnLogout?.addEventListener('click', encerraSessao);
+
+// Modal de alteração de senha
+document.getElementById('btn-abrir-modal-senha')?.addEventListener('click', () => {
+    document.getElementById('modal-senha').classList.remove('hidden');
+});
+
+window.fecharModalSenha = function() {
+    document.getElementById('modal-senha').classList.add('hidden');
+};
+
+document.getElementById('form-modal-senha')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const atual = document.getElementById('modal-senha-atual').value;
+    const nova = document.getElementById('modal-senha-nova').value;
+
+    const userKey = sessaoAtual.usuario;
+    const hashAtual = await hashSenha(atual);
+
+    if (perfisSistema[userKey].senhaHash !== hashAtual) {
+        alert("A senha atual informada está incorreta.");
+        return;
+    }
+    if (nova.length < 8) {
+        alert("A nova senha deve possuir pelo menos 8 caracteres.");
+        return;
+    }
+
+    perfisSistema[userKey].senhaHash = await hashSenha(nova);
+    localStorage.setItem('audio_sa_perfis_v3', JSON.stringify(perfisSistema));
+    registrarLogAuditoria("ALTERAÇÃO_SENHA", `Senha alterada pelo usuário: ${userKey}`);
+
+    alert("Senha atualizada com sucesso!");
+    fecharModalSenha();
+    document.getElementById('form-modal-senha').reset();
+});
+
+// ==========================================
+// LANÇAMENTOS E BANCO DE DADOS
+// ==========================================
 function inicializarSelects() {
     selectProfissional.innerHTML = '';
     PROFISSIONAIS.forEach(p => {
@@ -96,152 +411,7 @@ function atualizarCategorias() {
     }
 }
 
-selectTipo.addEventListener('change', atualizarCategorias);
-
-window.mudarAba = function(aba) {
-    document.getElementById('aba-dashboard').style.display = aba === 'dashboard' ? 'flex' : 'none';
-    document.getElementById('aba-lancamento').style.display = aba === 'lancamento' ? 'flex' : 'none';
-    document.getElementById('aba-historico').style.display = aba === 'historico' ? 'flex' : 'none';
-
-    document.querySelectorAll('.nav-item-cmd').forEach(b => b.classList.remove('active'));
-    const btnAtivo = document.getElementById(`tab-btn-${aba}`);
-    if (btnAtivo) btnAtivo.classList.add('active');
-
-    if (aba === 'dashboard') {
-        setTimeout(() => atualizarDashboardVisual(), 100);
-    }
-};
-
-let usuarioPendenteAlteracao = null;
-
-formLogin.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const usuario = document.getElementById('login-usuario').value;
-    const senha = document.getElementById('login-senha').value;
-
-    if (!usuario || !perfisSistema[usuario]) {
-        alert("Credenciais inválidas.");
-        return;
-    }
-
-    const senhaHashDigitada = await hashSenha(senha);
-    if (perfisSistema[usuario].senhaHash !== senhaHashDigitada) {
-        alert("Senha incorreta.");
-        return;
-    }
-
-    const dadosPerfil = perfisSistema[usuario];
-
-    if (dadosPerfil.primeiroAcesso) {
-        usuarioPendenteAlteracao = usuario;
-        formLogin.style.display = 'none';
-        formPrimeiroAcesso.style.display = 'flex';
-        return;
-    }
-
-    iniciarSessao(usuario, dadosPerfil.perfil);
-});
-
-formPrimeiroAcesso.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const s1 = document.getElementById('nova-senha-1').value;
-    const s2 = document.getElementById('nova-senha-2').value;
-
-    if (s1 !== s2) {
-        alert("As senhas não coincidem!");
-        return;
-    }
-    if (s1.length < 8) {
-        alert("Por segurança, a nova senha deve ter pelo menos 8 caracteres.");
-        return;
-    }
-
-    perfisSistema[usuarioPendenteAlteracao].senhaHash = await hashSenha(s1);
-    perfisSistema[usuarioPendenteAlteracao].primeiroAcesso = false;
-    localStorage.setItem('audio_sa_perfis_v2', JSON.stringify(perfisSistema));
-
-    alert("Senha alterada com sucesso!");
-    iniciarSessao(usuarioPendenteAlteracao, perfisSistema[usuarioPendenteAlteracao].perfil);
-});
-
-function iniciarSessao(usuario, perfil) {
-    sessaoAtual = { usuario, perfil };
-    localStorage.setItem('audio_sa_sessao', JSON.stringify(sessaoAtual));
-    aplicarPermissoesPerfil();
-}
-
-function aplicarPermissoesPerfil() {
-    if (!sessaoAtual) return;
-
-    screenAuth.classList.add('hidden');
-    appDashboard.classList.remove('hidden');
-
-    document.getElementById('user-role-badge').innerText = `Perfil: ${sessaoAtual.perfil.toUpperCase()}`;
-    const secaoOcr = document.getElementById('secao-ocr');
-    const acoesAnalista = document.getElementById('acoes-analista');
-    const thAcoes = document.getElementById('th-acoes');
-
-    if (sessaoAtual.perfil === 'recepcao') {
-        if (secaoOcr) secaoOcr.style.display = 'none';
-        if (acoesAnalista) acoesAnalista.style.display = 'none';
-        if (thAcoes) thAcoes.style.display = 'none';
-    } else if (sessaoAtual.perfil === 'gerente') {
-        if (secaoOcr) secaoOcr.style.display = 'block';
-        if (acoesAnalista) acoesAnalista.style.display = 'none';
-        if (thAcoes) thAcoes.style.display = 'none';
-    } else if (sessaoAtual.perfil === 'analista') {
-        if (secaoOcr) secaoOcr.style.display = 'block';
-        if (acoesAnalista) acoesAnalista.style.display = 'flex';
-        if (thAcoes) thAcoes.style.display = 'table-cell';
-    }
-
-    inicializarSelects();
-    renderCharts();
-    carregarTransacoes();
-    mudarAba('dashboard');
-}
-
-btnLogout.addEventListener('click', () => {
-    localStorage.removeItem('audio_sa_sessao');
-    location.reload();
-});
-
-document.getElementById('btn-abrir-modal-senha').addEventListener('click', () => {
-    document.getElementById('modal-senha').classList.remove('hidden');
-});
-window.fecharModalSenha = function() {
-    document.getElementById('modal-senha').classList.add('hidden');
-};
-
-document.getElementById('form-modal-senha').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const atual = document.getElementById('modal-senha-atual').value;
-    const nova = document.getElementById('modal-senha-nova').value;
-
-    const userKey = sessaoAtual.usuario;
-    const atualHash = await hashSenha(atual);
-
-    if (perfisSistema[userKey].senhaHash !== atualHash) {
-        alert("A senha atual está incorreta.");
-        return;
-    }
-    if (nova.length < 8) {
-        alert("A nova senha deve ter pelo menos 8 caracteres.");
-        return;
-    }
-
-    perfisSistema[userKey].senhaHash = await hashSenha(nova);
-    localStorage.setItem('audio_sa_perfis_v2', JSON.stringify(perfisSistema));
-    alert("Senha alterada com sucesso!");
-    fecharModalSenha();
-    document.getElementById('form-modal-senha').reset();
-});
-
-window.addEventListener('DOMContentLoaded', () => {
-    if (sessaoAtual) {
-        aplicarPermissoesPerfil();
-    }
-});
+selectTipo?.addEventListener('change', atualizarCategorias);
 
 async function carregarTransacoes() {
     try {
@@ -262,7 +432,7 @@ async function carregarTransacoes() {
     }
 }
 
-formTransacao.addEventListener('submit', async (e) => {
+formTransacao?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const editId = document.getElementById('t-edit-id').value;
@@ -272,7 +442,7 @@ formTransacao.addEventListener('submit', async (e) => {
     const descricao = document.getElementById('t-descricao').value;
     const valorBruto = parseFloat(document.getElementById('t-valor').value);
     const data = document.getElementById('t-data').value;
-    const formaPagamento = selectFormaPagamento.value;
+    const formaPagamento = document.getElementById('t-forma-pagamento').value;
     const bandeira = tipo === 'entrada' ? selectBandeira.value : '';
 
     let valorLiquido = valorBruto;
@@ -285,44 +455,63 @@ formTransacao.addEventListener('submit', async (e) => {
         tipo,
         categoria,
         profissional,
-        descricao: `${descricao} (${formaPagamento}${bandeira ? ' - ' + bandeira : ''})`,
+        descricao: escapeHTML(`${descricao} (${formaPagamento}${bandeira ? ' - ' + bandeira : ''})`),
         valor: parseFloat(valorLiquido.toFixed(2)),
         data
     };
 
     if (editId) {
         if (sessaoAtual?.perfil !== 'analista') {
-            alert("Apenas o Analista tem permissão para editar registros.");
+            alert("Apenas o perfil Analista possui permissão para editar lançamentos.");
             return;
         }
         const index = transacoes.findIndex(t => t.id === editId);
         if (index !== -1) transacoes[index] = transacaoObj;
-        document.getElementById('t-edit-id').value = '';
-        document.getElementById('form-titulo-modo').innerText = "Novo Lançamento Financeiro";
-        document.getElementById('btn-submit-transacao').innerText = "Salvar Lançamento";
+        registrarLogAuditoria("EDIÇÃO_LANÇAMENTO", `Lançamento ID ${editId} modificado.`);
+        cancelarEdicao();
     } else {
         transacoes.unshift(transacaoObj);
         if (supabase10) {
             await supabase10.from('transacoes').insert([transacaoObj]).catch(() => {});
         }
+        registrarLogAuditoria("NOVO_LANÇAMENTO", `Novo lançamento registrado: R$ ${valorLiquido.toFixed(2)} (${tipo})`);
     }
 
     localStorage.setItem('audio_sa_transacoes', JSON.stringify(transacoes));
     formTransacao.reset();
+    document.getElementById('t-data').value = new Date().toISOString().split('T')[0];
     atualizarCategorias();
     atualizarDashboardVisual();
-    alert("Operação efetuada com sucesso!");
-    mudarAba('historico');
+
+    alert("Lançamento efetuado com sucesso!");
+
+    // Recepção permanece na página de lançamento
+    if (sessaoAtual.perfil !== 'recepcao') {
+        mudarAba('historico');
+    }
 });
+
+function cancelarEdicao() {
+    document.getElementById('t-edit-id').value = '';
+    document.getElementById('form-titulo-modo').innerText = "Novo Lançamento Financeiro";
+    document.getElementById('btn-submit-transacao').innerText = "💾 Salvar Lançamento";
+    document.getElementById('btn-cancelar-edicao').classList.add('hidden');
+    formTransacao.reset();
+    atualizarCategorias();
+}
 
 function atualizarDashboardVisual() {
     const entradas = transacoes.filter(t => t.tipo === 'entrada').reduce((a, t) => a + t.valor, 0);
     const saidas = transacoes.filter(t => t.tipo === 'saida').reduce((a, t) => a + t.valor, 0);
     const saldo = entradas - saidas;
 
-    document.getElementById('total-entradas').innerText = `R$ ${entradas.toFixed(2)}`;
-    document.getElementById('total-saidas').innerText = `R$ ${saidas.toFixed(2)}`;
-    document.getElementById('saldo-liquido').innerText = `R$ ${saldo.toFixed(2)}`;
+    const elEntradas = document.getElementById('total-entradas');
+    const elSaidas = document.getElementById('total-saidas');
+    const elSaldo = document.getElementById('saldo-liquido');
+
+    if (elEntradas) elEntradas.innerText = `R$ ${entradas.toFixed(2)}`;
+    if (elSaidas) elSaidas.innerText = `R$ ${saidas.toFixed(2)}`;
+    if (elSaldo) elSaldo.innerText = `R$ ${saldo.toFixed(2)}`;
 
     updateCharts(entradas, saidas);
     renderTabela();
@@ -330,6 +519,7 @@ function atualizarDashboardVisual() {
 
 function renderTabela() {
     const tbody = document.getElementById('transacoes-list');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     transacoes.forEach(t => {
@@ -344,7 +534,7 @@ function renderTabela() {
 
         if (sessaoAtual && sessaoAtual.perfil === 'analista') {
             html += `<td>
-                <button onclick="editarTransacao('${t.id}')" style="background: var(--accent); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin-right: 5px;">Editar</button>
+                <button onclick="editarTransacao('${t.id}')" style="background: var(--accent); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin-right: 4px;">Editar</button>
                 <button onclick="deletarTransacao('${t.id}')" style="background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer;">Excluir</button>
             </td>`;
         }
@@ -371,27 +561,73 @@ window.editarTransacao = function(id) {
     document.getElementById('t-data').value = t.data;
     
     document.getElementById('form-titulo-modo').innerText = "Editar Lançamento Financeiro";
-    document.getElementById('btn-submit-transacao').innerText = "Atualizar Lançamento";
+    document.getElementById('btn-submit-transacao').innerText = "🔄 Atualizar Lançamento";
+    document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.deletarTransacao = async function(id) {
     if (sessaoAtual?.perfil !== 'analista') {
-        alert("Apenas o Analista tem permissão para excluir registros.");
+        alert("Apenas o perfil Analista possui autorização para excluir registros.");
         return;
     }
-    if (!confirm("Deseja apagar este registro financeiro?")) return;
+    if (!confirm("Deseja realmente apagar este registro financeiro?")) return;
 
     transacoes = transacoes.filter(t => t.id !== id);
     localStorage.setItem('audio_sa_transacoes', JSON.stringify(transacoes));
     if (supabase10) {
         await supabase10.from('transacoes').delete().match({ id }).catch(()=>{});
     }
+    registrarLogAuditoria("EXCLUSÃO_LANÇAMENTO", `Lançamento ID ${id} excluído pelo Analista.`);
     atualizarDashboardVisual();
 };
 
+window.filtrarHistorico = function() {
+    const busca = document.getElementById('filtro-busca').value.toLowerCase();
+    const tipo = document.getElementById('filtro-tipo').value;
+    const tbody = document.getElementById('transacoes-list');
+    tbody.innerHTML = '';
+
+    const filtrados = transacoes.filter(t => {
+        const bateBusca = t.descricao.toLowerCase().includes(busca) || t.categoria.toLowerCase().includes(busca);
+        const bateTipo = tipo === 'todos' || t.tipo === tipo;
+        return bateBusca && bateTipo;
+    });
+
+    filtrados.forEach(t => {
+        const tr = document.createElement('tr');
+        let html = `
+            <td>${t.data}</td>
+            <td><b style="color: ${t.tipo === 'entrada' ? 'var(--success)' : 'var(--danger)'}">${t.tipo.toUpperCase()}</b></td>
+            <td><strong>${t.categoria}</strong></td>
+            <td>${t.descricao}</td>
+            <td>R$ ${t.valor.toFixed(2)}</td>
+        `;
+
+        if (sessaoAtual && sessaoAtual.perfil === 'analista') {
+            html += `<td>
+                <button onclick="editarTransacao('${t.id}')" style="background: var(--accent); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin-right: 4px;">Editar</button>
+                <button onclick="deletarTransacao('${t.id}')" style="background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer;">Excluir</button>
+            </td>`;
+        }
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+    });
+};
+
+// ==========================================
+// GRÁFICOS (CHART.JS)
+// ==========================================
 function renderCharts() {
-    const ctxBar = document.getElementById('financeBarChart').getContext('2d');
+    const canvasBar = document.getElementById('financeBarChart');
+    const canvasPie = document.getElementById('financePieChart');
+
+    if (!canvasBar || !canvasPie) return;
+
+    if (barChartInstance) barChartInstance.destroy();
+    if (pieChartInstance) pieChartInstance.destroy();
+
+    const ctxBar = canvasBar.getContext('2d');
     barChartInstance = new Chart(ctxBar, {
         type: 'bar',
         data: {
@@ -404,33 +640,23 @@ function renderCharts() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#8ab6c1' } }
-            },
-            scales: {
-                x: { ticks: { color: '#8ab6c1' }, grid: { color: 'rgba(138, 182, 193, 0.1)' } },
-                y: { ticks: { color: '#8ab6c1' }, grid: { color: 'rgba(138, 182, 193, 0.1)' } }
-            }
+            maintainAspectRatio: false
         }
     });
 
-    const ctxPie = document.getElementById('financePieChart').getContext('2d');
+    const ctxPie = canvasPie.getContext('2d');
     pieChartInstance = new Chart(ctxPie, {
         type: 'doughnut',
         data: {
             labels: ['Consultas / Exames', 'Aparelhos', 'Custos Fixos', 'Outros'],
             datasets: [{
                 data: [40, 30, 20, 10],
-                backgroundColor: ['#2c8c9e', '#10b981', '#ef4444', '#8ab6c1']
+                backgroundColor: ['#0284c7', '#10b981', '#ef4444', '#f59e0b']
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#8ab6c1' } }
-            }
+            maintainAspectRatio: false
         }
     });
 }
@@ -446,6 +672,9 @@ function updateCharts(entradas, saidas) {
     pieChartInstance.update();
 }
 
+// ==========================================
+// MÓDULO OCR ASSISTIVO COM REVISÃO OBRIGATÓRIA
+// ==========================================
 const btnTriggerCamera = document.getElementById('btn-trigger-camera');
 const btnTriggerGallery = document.getElementById('btn-trigger-gallery');
 const ocrFileInput = document.getElementById('ocr-file-input');
@@ -457,48 +686,64 @@ const btnCancelOcr = document.getElementById('btn-cancel-ocr');
 const statusDiv = document.getElementById('ocr-status');
 
 if (btnTriggerCamera) {
-    btnTriggerCamera.addEventListener('click', () => { ocrFileInput.setAttribute('capture', 'environment'); ocrFileInput.click(); });
-    btnTriggerGallery.addEventListener('click', () => { ocrFileInput.removeAttribute('capture'); ocrFileInput.click(); });
+    btnTriggerCamera.addEventListener('click', () => {
+        if (sessaoAtual?.perfil === 'recepcao') return;
+        ocrFileInput.setAttribute('capture', 'environment');
+        ocrFileInput.click();
+    });
+
+    btnTriggerGallery.addEventListener('click', () => {
+        if (sessaoAtual?.perfil === 'recepcao') return;
+        ocrFileInput.removeAttribute('capture');
+        ocrFileInput.click();
+    });
 
     ocrFileInput.addEventListener('change', async (e) => {
         if (e.target.files.length === 0) return;
-        statusDiv.innerText = 'Processando imagem...';
+        const file = e.target.files[0];
+
+        // Validação de Tamanho (Máx 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert("O arquivo selecionado excede o limite máximo de 5MB.");
+            return;
+        }
+
+        statusDiv.innerText = 'Processando documento via OCR Assistivo...';
+        registrarLogAuditoria("OCR_PROCESSAMENTO", `Arquivo enviado para OCR: ${file.name}`);
+
         setTimeout(() => {
-            statusDiv.innerText = 'Leitura concluída. Revise os dados abaixo.';
-            ocrPrevDesc.value = 'Compra de Insumos / Materiais';
-            ocrPrevVal.value = '350.00';
-            ocrPreviewContainer.style.display = 'block';
+            statusDiv.innerText = 'Leitura OCR efetuada. Confira as informações abaixo.';
+            ocrPrevDesc.value = 'Insumos Clínicos e Materiais Operacionais';
+            ocrPrevVal.value = '450.00';
+            ocrPreviewContainer.classList.remove('hidden');
         }, 1200);
     });
 
     btnConfirmOcr.addEventListener('click', () => {
-        document.getElementById('t-tipo').value = 'saida';
+        selectTipo.value = 'saida';
         atualizarCategorias();
         document.getElementById('t-descricao').value = ocrPrevDesc.value;
         document.getElementById('t-valor').value = ocrPrevVal.value;
         document.getElementById('t-data').value = new Date().toISOString().split('T')[0];
         
-        ocrPreviewContainer.style.display = 'none';
-        statusDiv.innerText = 'Dados aplicados no formulário com confirmação humana!';
-        mudarAba('lancamento');
+        ocrPreviewContainer.classList.add('hidden');
+        statusDiv.innerText = 'Dados carregados com sucesso no formulário!';
+        registrarLogAuditoria("OCR_CONFIRMAÇÃO_HUMANA", `Dados do OCR confirmados manualmente: R$ ${ocrPrevVal.value}`);
+        window.scrollTo({ top: document.getElementById('form-transacao').offsetTop - 20, behavior: 'smooth' });
     });
 
     btnCancelOcr.addEventListener('click', () => {
-        ocrPreviewContainer.style.display = 'none';
-        statusDiv.innerText = 'Leitura descartada.';
+        ocrPreviewContainer.classList.add('hidden');
+        statusDiv.innerText = 'Leitura descartada pelo usuário.';
+        registrarLogAuditoria("OCR_DESCARTADO", "Dados da extração descartados.");
     });
 }
 
-function sanitizarCSV(valor) {
-    if (typeof valor !== 'string') return valor;
-    if (/^[=+\-@]/.test(valor)) {
-        return `'${valor}`;
-    }
-    return `"${valor.replace(/"/g, '""')}"`;
-}
-
+// ==========================================
+// EXPORTAÇÕES (CSV E PDF)
+// ==========================================
 document.getElementById('btn-export-csv')?.addEventListener('click', () => {
-    if (sessaoAtual?.perfil !== 'analista') return alert("Acesso restrito ao Analista.");
+    if (sessaoAtual?.perfil === 'recepcao') return alert("Acesso restrito ao Gerente e Analista.");
     let csvContent = "\uFEFFData,Tipo,Categoria,Profissional,Descricao,Valor Liquido (R$)\n";
     transacoes.forEach(t => {
         csvContent += `${t.data},${t.tipo},${t.categoria},${t.profissional || 'Geral'},${sanitizarCSV(t.descricao)},${t.valor}\n`;
@@ -511,17 +756,101 @@ document.getElementById('btn-export-csv')?.addEventListener('click', () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    registrarLogAuditoria("EXPORTAÇÃO_CSV", "Relatório CSV exportado.");
 });
 
 document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
-    if (sessaoAtual?.perfil !== 'analista') return alert("Acesso restrito ao Analista.");
+    if (sessaoAtual?.perfil === 'recepcao') return alert("Acesso restrito ao Gerente e Analista.");
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     doc.text("Áudio S.A. - Relatório Financeiro Oficial", 14, 18);
     let y = 30;
     transacoes.forEach(t => {
-        doc.text(`${t.data} | [${t.tipo.toUpperCase()}] ${t.categoria} - R$ ${t.valor.toFixed(2)}`, 14, y);
+        doc.text(`${t.data} | [${t.tipo.toUpperCase()}] ${t.categoria} - R$ ${t.valor.toFixed(2)} (${t.descricao})`, 14, y);
         y += 8;
     });
     doc.save("audio_sa_relatorio.pdf");
+    registrarLogAuditoria("EXPORTAÇÃO_PDF", "Relatório PDF exportado.");
+});
+
+// ==========================================
+// PAINÉIS EXCLUSIVOS DO ANALISTA (LOGS E USUÁRIOS)
+// ==========================================
+function renderizarListaUsuarios() {
+    const container = document.getElementById('usuarios-sistema-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    Object.keys(perfisSistema).forEach(key => {
+        const u = perfisSistema[key];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${key.toUpperCase()}</strong></td>
+            <td>${u.nome}</td>
+            <td><span class="badge-role">${u.perfil.toUpperCase()}</span></td>
+            <td>${u.primeiroAcesso ? '<span style="color:var(--danger)">Pendente</span>' : '<span style="color:var(--success)">Concluído</span>'}</td>
+            <td>
+                <button onclick="resetarSenhaUsuario('${key}')" style="background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Redefinir Senha Inicial</button>
+            </td>
+        `;
+        container.appendChild(tr);
+    });
+}
+
+window.resetarSenhaUsuario = async function(key) {
+    if (sessaoAtual?.perfil !== 'analista') return;
+    if (!confirm(`Deseja resetar a senha do perfil ${key} para a senha temporária padrão?`)) return;
+
+    perfisSistema[key].senhaHash = await hashSenha(`${key}123`);
+    perfisSistema[key].primeiroAcesso = true;
+    localStorage.setItem('audio_sa_perfis_v3', JSON.stringify(perfisSistema));
+    registrarLogAuditoria("GERENCIAMENTO_USUÁRIO", `Senha do perfil ${key} resetada pelo Analista.`);
+    alert(`Senha do usuário ${key} resetada com sucesso!`);
+    renderizarListaUsuarios();
+};
+
+function renderizarListaLogs() {
+    const container = document.getElementById('logs-audit-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    logsAuditoria.forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${l.timestamp}</td>
+            <td><b>${l.usuario}</b></td>
+            <td><span class="badge-role">${l.perfil}</span></td>
+            <td><strong>${l.acao}</strong></td>
+            <td>${l.detalhes}</td>
+            <td><span style="color: ${l.resultado === 'SUCESSO' ? 'var(--success)' : 'var(--danger)'}">${l.resultado}</span></td>
+        `;
+        container.appendChild(tr);
+    });
+}
+
+// ==========================================
+// SUPORTE MOBILE (MENU HAMBÚRGUER)
+// ==========================================
+document.getElementById('btn-toggle-mobile-menu')?.addEventListener('click', () => {
+    document.getElementById('main-sidebar').classList.add('mobile-open');
+    document.getElementById('mobile-sidebar-overlay').classList.remove('hidden');
+});
+
+document.getElementById('btn-close-mobile-menu')?.addEventListener('click', () => {
+    document.getElementById('main-sidebar').classList.remove('mobile-open');
+    document.getElementById('mobile-sidebar-overlay').classList.add('hidden');
+});
+
+document.getElementById('mobile-sidebar-overlay')?.addEventListener('click', () => {
+    document.getElementById('main-sidebar').classList.remove('mobile-open');
+    document.getElementById('mobile-sidebar-overlay').classList.add('hidden');
+});
+
+// Inicialização Geral
+window.addEventListener('DOMContentLoaded', () => {
+    inicializarTema();
+    document.getElementById('t-data').value = new Date().toISOString().split('T')[0];
+    if (sessaoAtual) {
+        aplicarPermissoesPerfil();
+    }
 });

@@ -1,117 +1,205 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Áudio S.A. - Smart Financial Command</title>
+    <title>Áudio S.A. - Gestão Financeira Clínica</title>
     
+    <!-- CSS Principal -->
     <link rel="stylesheet" href="style.css">
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
+    <!-- Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF para relatórios -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <meta name="theme-color" content="#07141b">
+    <meta name="theme-color" content="#2c8c9e">
     <link rel="apple-touch-icon" href="logo.png">
 </head>
 <body>
 
-    <!-- TELA DE AUTENTICAÇÃO -->
+    <!-- ========================================== -->
+    <!-- TELA DE AUTENTICAÇÃO                       -->
+    <!-- ========================================== -->
     <section id="auth-screen" class="screen active">
         <div class="auth-card">
-            <div class="logo-container">
-                <img src="logo.png" alt="Áudio S.A. Logo" class="clinica-logo-img" onerror="this.style.display='none'">
-                <p>Smart Financial Command</p>
+            <div class="auth-card-header">
+                <div class="logo-container">
+                    <img src="logo.png" alt="Áudio S.A. Logo" class="clinica-logo-img" onerror="this.style.display='none'">
+                    <h2>Áudio S.A.</h2>
+                    <p>Gestão Financeira & Operacional</p>
+                </div>
+                <!-- Botão de Tema na Tela de Login -->
+                <button type="button" class="btn-theme-toggle-auth" id="btn-theme-auth" title="Alternar Modo Claro / Escuro" aria-label="Alternar Tema">
+                    <span class="theme-icon">☀️</span>
+                </button>
             </div>
 
-            <form id="form-login" class="auth-form active">
-                <h3>Acesso Restrito</h3>
+            <!-- FORMULÁRIO DE LOGIN -->
+            <form id="form-login" class="auth-form active" autocomplete="off">
+                <h3>Acesso Restrito ao Sistema</h3>
+                <div id="login-alert" class="alert-box hidden" role="alert"></div>
+
                 <div class="campo">
-                    <label>Selecione o Perfil de Acesso</label>
+                    <label for="login-usuario">Perfil de Acesso</label>
                     <select id="login-usuario" required>
-                        <option value="">-- Escolha o usuário --</option>
-                        <option value="recepcao">Recepção</option>
-                        <option value="gerente">Gerente</option>
-                        <option value="analista">Analista</option>
+                        <option value="">-- Escolha o perfil --</option>
+                        <option value="recepcao">Recepção (Lançamentos)</option>
+                        <option value="gerente">Gerente (Operação & Dashboard)</option>
+                        <option value="analista">Analista (Administrador Total)</option>
                     </select>
                 </div>
+
                 <div class="campo">
-                    <label>Senha de Acesso</label>
-                    <input type="password" id="login-senha" placeholder="Digite sua senha" required>
+                    <label for="login-senha">Senha de Acesso</label>
+                    <input type="password" id="login-senha" placeholder="Digite sua senha" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn-primary" style="margin-top: 10px;">Entrar no Sistema</button>
+
+                <button type="submit" id="btn-submit-login" class="btn-primary">
+                    <span>Entrar no Sistema</span>
+                </button>
             </form>
 
-            <form id="form-alterar-primeiro-acesso" class="auth-form" style="display: none;">
-                <h3>Alterar Senha Temporária</h3>
-                <p style="font-size: 0.83rem; color: var(--danger); margin-bottom: 10px;">Por segurança, defina uma nova senha pessoal (mínimo de 8 caracteres).</p>
+            <!-- FORMULÁRIO DE TROCA OBRIGATÓRIA DE SENHA NO PRIMEIRA ACESSO -->
+            <form id="form-alterar-primeiro-acesso" class="auth-form hidden" autocomplete="off">
+                <h3>Troca Obrigatória de Senha</h3>
+                <p class="txt-warning-security">
+                    🔒 Por política de segurança, altere sua senha temporária no primeiro acesso.
+                </p>
+                <div id="primeiro-acesso-alert" class="alert-box hidden" role="alert"></div>
+
                 <div class="campo">
-                    <label>Nova Senha</label>
-                    <input type="password" id="nova-senha-1" required minlength="8">
+                    <label for="nova-senha-1">Nova Senha (Mínimo de 8 caracteres)</label>
+                    <input type="password" id="nova-senha-1" required minlength="8" autocomplete="new-password" placeholder="Sua nova senha segura">
                 </div>
+
                 <div class="campo">
-                    <label>Confirme a Nova Senha</label>
-                    <input type="password" id="nova-senha-2" required minlength="8">
+                    <label for="nova-senha-2">Confirme a Nova Senha</label>
+                    <input type="password" id="nova-senha-2" required minlength="8" autocomplete="new-password" placeholder="Repita a nova senha">
                 </div>
-                <button type="submit" class="btn-primary" style="background: var(--success); margin-top: 10px;">Salvar e Entrar</button>
+
+                <button type="submit" class="btn-primary btn-success-action">
+                    <span>Salvar Nova Senha e Continuar</span>
+                </button>
             </form>
         </div>
     </section>
 
-    <!-- PAINEL PRINCIPAL COM LAYOUT DE COMANDO -->
+    <!-- ========================================== -->
+    <!-- PAINEL PRINCIPAL COM LAYOUT RESPONSIVO     -->
+    <!-- ========================================== -->
     <div id="app-dashboard" class="app-command-layout hidden">
         
-        <!-- SIDEBAR LATERAL -->
-        <aside class="sidebar">
-            <div>
+        <!-- SIDEBAR LATERAL (NAVEGAÇÃO COM CONTEXTO DE PERFIL) -->
+        <aside class="sidebar" id="main-sidebar">
+            <div class="sidebar-top">
                 <div class="sidebar-brand">
                     <img src="logo.png" alt="Logo Áudio S.A." class="clinica-logo-img" onerror="this.style.display='none'">
-                    <span>Áudio S.A.</span>
+                    <div class="brand-text">
+                        <span class="brand-title">Áudio S.A.</span>
+                        <span class="brand-subtitle">Gestão Clínica</span>
+                    </div>
+                    <button type="button" id="btn-close-mobile-menu" class="btn-icon-mobile-close" aria-label="Fechar menu">✕</button>
                 </div>
                 
-                <nav class="sidebar-nav">
-                    <button id="tab-btn-dashboard" class="nav-item-cmd active" onclick="mudarAba('dashboard')">
-                        📊 Dashboard Executivo
+                <!-- NAVEGAÇÃO DINÂMICA (FILTRADA POR PERFIL) -->
+                <nav class="sidebar-nav" id="sidebar-nav-container">
+                    <button id="nav-btn-dashboard" class="nav-item-cmd active" onclick="mudarAba('dashboard')">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-label">Dashboard Executivo</span>
                     </button>
-                    <button id="tab-btn-lancamento" class="nav-item-cmd" onclick="mudarAba('lancamento')">
-                        ➕ Novo Lançamento
+                    <button id="nav-btn-lancamento" class="nav-item-cmd" onclick="mudarAba('lancamento')">
+                        <span class="nav-icon">➕</span>
+                        <span class="nav-label">Novo Lançamento</span>
                     </button>
-                    <button id="tab-btn-historico" class="nav-item-cmd" onclick="mudarAba('historico')">
-                        📋 Histórico & Gestão
+                    <button id="nav-btn-historico" class="nav-item-cmd" onclick="mudarAba('historico')">
+                        <span class="nav-icon">📋</span>
+                        <span class="nav-label">Histórico & Gestão</span>
+                    </button>
+                    <button id="nav-btn-usuarios" class="nav-item-cmd nav-admin-only hidden" onclick="mudarAba('usuarios')">
+                        <span class="nav-icon">👥</span>
+                        <span class="nav-label">Gerenciar Usuários</span>
+                    </button>
+                    <button id="nav-btn-logs" class="nav-item-cmd nav-admin-only hidden" onclick="mudarAba('logs')">
+                        <span class="nav-icon">🛡️</span>
+                        <span class="nav-label">Logs de Auditoria</span>
                     </button>
                 </nav>
             </div>
 
+            <!-- FOOTER DA SIDEBAR -->
             <div class="sidebar-footer">
-                <span id="user-role-badge" style="text-align: center;">Perfil: ---</span>
-                <button id="btn-abrir-modal-senha" class="btn-cmd-outline">Alterar Senha</button>
-                <button id="btn-logout" class="btn-cmd-outline" style="border-color: var(--danger); color: var(--danger);">Sair da Sessão</button>
+                <div class="user-info-card">
+                    <span id="user-role-badge" class="badge-role">Perfil: ---</span>
+                    <span id="user-name-display" class="user-name">Usuário</span>
+                </div>
+                <div class="sidebar-actions">
+                    <button id="btn-abrir-modal-senha" class="btn-cmd-outline btn-full-w">
+                        🔑 Alterar Senha
+                    </button>
+                    <button id="btn-logout" class="btn-cmd-outline btn-danger-outline btn-full-w">
+                        🚪 Sair da Sessão
+                    </button>
+                </div>
             </div>
         </aside>
 
-        <!-- CONTEÚDO DINÂMICO -->
+        <!-- OVERLAY PARA MENU MOBILE -->
+        <div id="mobile-sidebar-overlay" class="mobile-overlay hidden"></div>
+
+        <!-- CONTEÚDO PRINCIPAL -->
         <main class="command-content">
             
+            <!-- HEADER SUPERIOR -->
             <header class="command-header">
-                <div class="command-title">
-                    <h2>Centro de Comando Financeiro</h2>
-                    <p>Monitoramento em tempo real de entradas, saídas e indicadores operacionais.</p>
+                <div class="header-left">
+                    <button type="button" id="btn-toggle-mobile-menu" class="btn-hamburger" aria-label="Abrir Menu">
+                        ☰
+                    </button>
+                    <div class="command-title">
+                        <h2 id="page-current-title">Dashboard Executivo</h2>
+                        <p id="page-current-subtitle">Visão geral dos indicadores operacionais e financeiros da clínica.</p>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <!-- BOTÃO ALTERNADOR DE MODO CLARO / ESCURO -->
+                    <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" title="Alternar entre Modo Claro e Modo Escuro">
+                        <span id="theme-toggle-icon" class="theme-icon">☀️</span>
+                        <span id="theme-toggle-text" class="theme-text">Modo Claro</span>
+                    </button>
                 </div>
             </header>
 
-            <!-- ABA 1: DASHBOARD EXECUTIVO -->
-            <div id="aba-dashboard" class="tab-content active-tab" style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- CAIXA GLOBAL DE NOTIFICAÇÕES / MENSAGENS -->
+            <div id="global-feedback" class="feedback-banner hidden" role="status"></div>
+
+            <!-- ========================================== -->
+            <!-- ABA 1: DASHBOARD EXECUTIVO (GERENTE / ANALISTA) -->
+            <!-- ========================================== -->
+            <div id="aba-dashboard" class="tab-content active-tab">
                 <section class="kpi-grid">
                     <div class="kpi-card in">
-                        <span>Recebimento Bruto</span>
-                        <strong id="total-entradas">R$ 0,00</strong>
+                        <div class="kpi-icon-box">💰</div>
+                        <div class="kpi-info">
+                            <span>Recebimento Bruto</span>
+                            <strong id="total-entradas">R$ 0,00</strong>
+                        </div>
                     </div>
                     <div class="kpi-card out">
-                        <span>Saídas / Despesas</span>
-                        <strong id="total-saidas">R$ 0,00</strong>
+                        <div class="kpi-icon-box">💸</div>
+                        <div class="kpi-info">
+                            <span>Saídas / Despesas</span>
+                            <strong id="total-saidas">R$ 0,00</strong>
+                        </div>
                     </div>
                     <div class="kpi-card total">
-                        <span>Saldo Operacional Líquido</span>
-                        <strong id="saldo-liquido">R$ 0,00</strong>
+                        <div class="kpi-icon-box">📈</div>
+                        <div class="kpi-info">
+                            <span>Saldo Operacional Líquido</span>
+                            <strong id="saldo-liquido">R$ 0,00</strong>
+                        </div>
                     </div>
                 </section>
 
@@ -131,47 +219,78 @@
                 </div>
             </div>
 
-            <!-- ABA 2: NOVO LANÇAMENTO & OCR -->
-            <div id="aba-lancamento" class="tab-content" style="display: none; flex-direction: column; gap: 24px;">
+            <!-- ========================================== -->
+            <!-- ABA 2: NOVO LANÇAMENTO & OCR (TODOS OS PERFIS - FOCADO) -->
+            <!-- ========================================== -->
+            <div id="aba-lancamento" class="tab-content hidden">
                 
-                <!-- Módulo OCR Assistivo -->
-                <section id="secao-ocr" class="card-section">
-                    <h3>Escanear Nota Fiscal (OCR Inteligente Assistido)</h3>
-                    <div class="ocr-box">
-                        <input type="file" id="ocr-file-input" accept="image/*" capture="environment" style="display: none;">
-                        <div class="ocr-actions-group">
-                            <button type="button" id="btn-trigger-camera" class="btn-secondary">📸 Tirar Foto da Nota</button>
-                            <button type="button" id="btn-trigger-gallery" class="btn-outline">📂 Escolher da Galeria</button>
+                <!-- MÓDULO OCR ASSISTIVO (GERENTE E ANALISTA APENAS) -->
+                <section id="secao-ocr" class="card-section ocr-section-container">
+                    <div class="section-header-title">
+                        <span class="section-icon">📸</span>
+                        <div>
+                            <h3>Escanear Nota Fiscal / Comprovante (OCR Assistivo)</h3>
+                            <p class="section-desc">Extração automática com conferência e confirmação humana obrigatória.</p>
                         </div>
-                        <div id="ocr-status" class="ocr-status">Aponte a câmera para a nota fiscal para pré-preenchimento (exige revisão humana).</div>
+                    </div>
 
-                        <div id="ocr-preview-container" class="ocr-preview-box">
-                            <h4 style="margin-bottom: 10px; color: var(--text-main);">Revisão dos Dados Extraídos</h4>
-                            <div class="grid-form" style="margin-bottom: 10px;">
-                                <div>
-                                    <label>Descrição:</label>
-                                    <input type="text" id="ocr-prev-desc" style="width:100%; padding:10px; border-radius:8px;">
+                    <div class="ocr-box">
+                        <input type="file" id="ocr-file-input" accept="image/png, image/jpeg, image/jpg, application/pdf" capture="environment" style="display: none;">
+                        <div class="ocr-actions-group">
+                            <button type="button" id="btn-trigger-camera" class="btn-secondary">
+                                📸 Tirar Foto da Nota
+                            </button>
+                            <button type="button" id="btn-trigger-gallery" class="btn-outline">
+                                📂 Escolher da Galeria / PDF
+                            </button>
+                        </div>
+                        <div id="ocr-status" class="ocr-status">
+                            Nenhum arquivo selecionado. Selecione uma imagem ou comprovante para extração assistida.
+                        </div>
+
+                        <!-- REVISÃO E CONFIRMAÇÃO HUMANA OBRIGATÓRIA -->
+                        <div id="ocr-preview-container" class="ocr-preview-box hidden">
+                            <h4>🔍 Revisão Obrigatória dos Dados Extraídos</h4>
+                            <p class="ocr-note-warning">⚠️ Verifique os dados abaixo antes de confirmar o pré-preenchimento no formulário.</p>
+                            
+                            <div class="grid-form">
+                                <div class="campo">
+                                    <label for="ocr-prev-desc">Descrição / Fornecedor Identificado</label>
+                                    <input type="text" id="ocr-prev-desc">
                                 </div>
-                                <div>
-                                    <label>Valor (R$):</label>
-                                    <input type="number" step="0.01" id="ocr-prev-val" style="width:100%; padding:10px; border-radius:8px;">
+                                <div class="campo">
+                                    <label for="ocr-prev-val">Valor Identificado (R$)</label>
+                                    <input type="number" step="0.01" id="ocr-prev-val">
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <button type="button" id="btn-confirm-ocr" class="btn-primary" style="background: var(--success); padding: 8px 16px;">✅ Confirmar e Lançar Saída</button>
-                                <button type="button" id="btn-cancel-ocr" class="btn-outline" style="border-color: var(--danger); color: var(--danger); padding: 8px 16px;">❌ Descartar</button>
+                            
+                            <div class="ocr-decision-actions">
+                                <button type="button" id="btn-confirm-ocr" class="btn-primary btn-success-action">
+                                    ✅ Confirmar e Carregar no Formulário
+                                </button>
+                                <button type="button" id="btn-cancel-ocr" class="btn-outline btn-danger-text">
+                                    ❌ Descartar Leitura
+                                </button>
                             </div>
                         </div>
                     </div>
                 </section>
 
+                <!-- FORMULÁRIO DE LANÇAMENTO FINANCEIRO -->
                 <section class="card-section">
-                    <h3 id="form-titulo-modo">Novo Lançamento Financeiro</h3>
-                    <form id="form-transacao" class="grid-form">
+                    <div class="section-header-title">
+                        <span class="section-icon">📝</span>
+                        <div>
+                            <h3 id="form-titulo-modo">Novo Lançamento Financeiro</h3>
+                            <p class="section-desc">Registre movimentações de entrada ou saída com cálculo de taxas automático.</p>
+                        </div>
+                    </div>
+
+                    <form id="form-transacao" class="grid-form" autocomplete="off">
                         <input type="hidden" id="t-edit-id" value="">
                         
                         <div class="campo">
-                            <label>Tipo de Movimento</label>
+                            <label for="t-tipo">Tipo de Movimento *</label>
                             <select id="t-tipo" required>
                                 <option value="entrada">Entrada / Recebimento (+)</option>
                                 <option value="saida">Saída / Despesa (-)</option>
@@ -179,34 +298,34 @@
                         </div>
 
                         <div class="campo">
-                            <label>Categoria / Serviço</label>
+                            <label for="t-categoria">Categoria / Serviço *</label>
                             <select id="t-categoria" required></select>
                         </div>
 
                         <div class="campo" id="campo-profissional">
-                            <label>Profissional Responsável</label>
+                            <label for="t-profissional">Profissional Responsável *</label>
                             <select id="t-profissional"></select>
                         </div>
 
                         <div class="campo">
-                            <label>Descrição / Nome do Paciente</label>
-                            <input type="text" id="t-descricao" placeholder="Nome do paciente ou gasto" required>
+                            <label for="t-descricao">Descrição / Nome do Paciente *</label>
+                            <input type="text" id="t-descricao" placeholder="Ex: Consulta Dra Amanda / Paciente João" required>
                         </div>
 
                         <div class="campo">
-                            <label>Valor Bruto (R$)</label>
-                            <input type="number" id="t-valor" step="0.01" placeholder="0,00" required>
+                            <label for="t-valor">Valor Bruto (R$) *</label>
+                            <input type="number" id="t-valor" step="0.01" min="0.01" placeholder="0.00" required>
                         </div>
 
                         <div class="campo">
-                            <label>Data</label>
+                            <label for="t-data">Data da Operação *</label>
                             <input type="date" id="t-data" required>
                         </div>
 
                         <div class="campo" id="campo-pagamento">
-                            <label>Forma de Pagamento</label>
-                            <select id="t-forma-pagamento">
-                                <option value="PIX">PIX / Dinheiro / Boleto</option>
+                            <label for="t-forma-pagamento">Forma de Pagamento *</label>
+                            <select id="t-forma-pagamento" required>
+                                <option value="PIX">PIX / Dinheiro / Boleto (Sem taxa)</option>
                                 <option value="Débito">Cartão de Débito</option>
                                 <option value="Crédito à vista">Crédito à vista</option>
                                 <option value="Crédito Parcelado">Crédito Parcelado (2x a 12x)</option>
@@ -214,72 +333,196 @@
                         </div>
 
                         <div class="campo" id="campo-bandeira">
-                            <label>Bandeira / Taxa de Cartão</label>
+                            <label for="t-bandeira">Bandeira / Taxa de Cartão (Apenas Entradas)</label>
                             <select id="t-bandeira">
                                 <option value="">Sem taxa de cartão / Outros</option>
                             </select>
                         </div>
 
-                        <button type="submit" id="btn-submit-transacao" class="btn-primary" style="grid-column: 1 / -1; margin-top: 10px;">Salvar Lançamento</button>
+                        <div class="form-submit-row">
+                            <button type="submit" id="btn-submit-transacao" class="btn-primary">
+                                💾 Salvar Lançamento
+                            </button>
+                            <button type="button" id="btn-cancelar-edicao" class="btn-outline hidden" onclick="cancelarEdicao()">
+                                Cancelar Edição
+                            </button>
+                        </div>
                     </form>
                 </section>
             </div>
 
-            <!-- ABA 3: HISTÓRICO & GESTÃO -->
-            <div id="aba-historico" class="tab-content" style="display: none; flex-direction: column; gap: 24px;">
+            <!-- ========================================== -->
+            <!-- ABA 3: HISTÓRICO & GESTÃO (GERENTE / ANALISTA) -->
+            <!-- ========================================== -->
+            <div id="aba-historico" class="tab-content hidden">
                 <section class="card-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                        <h3>Histórico de Movimentações</h3>
-                        <div id="acoes-analista" style="display: none; gap: 10px;">
-                            <button id="btn-export-csv" class="btn-outline">Exportar Excel (CSV)</button>
-                            <button id="btn-export-pdf" class="btn-outline">Exportar Relatório PDF</button>
+                    <div class="table-header-toolbar">
+                        <div>
+                            <h3>Histórico de Lançamentos</h3>
+                            <p class="section-desc">Consulte, filtre e exporte relatórios consolidados.</p>
+                        </div>
+
+                        <!-- EXPORTAÇÕES (GERENTE / ANALISTA APENAS) -->
+                        <div id="acoes-analista" class="export-actions-group">
+                            <button type="button" id="btn-export-csv" class="btn-outline">
+                                📊 Exportar CSV (Excel)
+                            </button>
+                            <button type="button" id="btn-export-pdf" class="btn-outline">
+                                📄 Exportar PDF
+                            </button>
                         </div>
                     </div>
+
+                    <!-- BARRA DE FILTROS DO HISTÓRICO -->
+                    <div class="table-filters-bar">
+                        <div class="campo-inline">
+                            <label for="filtro-busca">Pesquisar:</label>
+                            <input type="text" id="filtro-busca" placeholder="Filtrar por paciente, categoria ou descrição..." onkeyup="filtrarHistorico()">
+                        </div>
+                        <div class="campo-inline">
+                            <label for="filtro-tipo">Tipo:</label>
+                            <select id="filtro-tipo" onchange="filtrarHistorico()">
+                                <option value="todos">Todos</option>
+                                <option value="entrada">Entradas</option>
+                                <option value="saida">Saídas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- TABELA RESPONSIVA / CARDS RESPONSIVOS MOBILE -->
                     <div class="table-responsive">
-                        <table>
+                        <table id="tabela-historico">
                             <thead>
                                 <tr>
                                     <th>Data</th>
                                     <th>Tipo</th>
                                     <th>Categoria</th>
-                                    <th>Descrição / Paciente</th>
-                                    <th>Valor Líquido (R$)</th>
-                                    <th id="th-acoes" style="display: none;">Ações</th>
+                                    <th>Descrição / Detalhes</th>
+                                    <th>Valor Líquido</th>
+                                    <th id="th-acoes" class="hidden">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="transacoes-list"></tbody>
+                            <tbody id="transacoes-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
                         </table>
                     </div>
                 </section>
             </div>
 
-            <footer style="text-align: center; padding: 20px; font-size: 0.82rem; color: var(--text-muted); border-top: 1px solid var(--panel-border); margin-top: auto;">
-                © 2026 Áudio S.A. - Smart Hospital Command Edition | Desenvolvido por <b>ayrandev</b>
+            <!-- ========================================== -->
+            <!-- ABA 4: GERENCIAR USUÁRIOS (ANALISTA APENAS) -->
+            <!-- ========================================== -->
+            <div id="aba-usuarios" class="tab-content hidden">
+                <section class="card-section">
+                    <div class="section-header-title">
+                        <span class="section-icon">👥</span>
+                        <div>
+                            <h3>Gerenciamento de Usuários do Sistema</h3>
+                            <p class="section-desc">Controle de credenciais e permissões (Exclusivo Analista).</p>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="margin-top: 15px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Identificador / Perfil</th>
+                                    <th>Nome de Exibição</th>
+                                    <th>Nível de Permissão</th>
+                                    <th>Status Primeiro Acesso</th>
+                                    <th>Ações Administrativas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usuarios-sistema-list">
+                                <!-- Preenchido dinamicamente via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- ABA 5: LOGS DE AUDITORIA (ANALISTA APENAS) -->
+            <!-- ========================================== -->
+            <div id="aba-logs" class="tab-content hidden">
+                <section class="card-section">
+                    <div class="section-header-title">
+                        <span class="section-icon">🛡️</span>
+                        <div>
+                            <h3>Trilha de Auditoria & Rastreabilidade</h3>
+                            <p class="section-desc">Registro chronológico de operações e eventos do sistema.</p>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="margin-top: 15px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data / Hora</th>
+                                    <th>Usuário</th>
+                                    <th>Perfil</th>
+                                    <th>Ação / Evento</th>
+                                    <th>Detalhes da Operação</th>
+                                    <th>Resultado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-audit-list">
+                                <!-- Preenchido dinamicamente via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <footer class="main-footer">
+                <p>© 2026 Áudio S.A. — Sistema Financeiro Clínico Oficial | Desenvolvido por <b>ayrandev</b></p>
             </footer>
         </main>
     </div>
 
-    <!-- MODAL DE ALTERAÇÃO DE SENHA -->
-    <div id="modal-senha" class="modal-overlay hidden">
+    <!-- ========================================== -->
+    <!-- MODAL DE ALTERAÇÃO DE SENHA                -->
+    <!-- ========================================== -->
+    <div id="modal-senha" class="modal-overlay hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
-            <h3>Alterar Senha de Acesso</h3>
-            <form id="form-modal-senha" style="display: flex; flex-direction: column; gap: 14px; margin-top: 15px;">
+            <div class="modal-card-header">
+                <h3>🔑 Alterar Senha de Acesso</h3>
+                <button type="button" class="btn-close-modal" onclick="fecharModalSenha()">✕</button>
+            </div>
+            <form id="form-modal-senha" autocomplete="off">
+                <div id="modal-senha-alert" class="alert-box hidden"></div>
+
                 <div class="campo">
-                    <label>Senha Atual</label>
-                    <input type="password" id="modal-senha-atual" required>
+                    <label for="modal-senha-atual">Senha Atual</label>
+                    <input type="password" id="modal-senha-atual" required autocomplete="current-password">
                 </div>
+
                 <div class="campo">
-                    <label>Nova Senha (mín. 8 caracteres)</label>
-                    <input type="password" id="modal-senha-nova" required minlength="8">
+                    <label for="modal-senha-nova">Nova Senha (Mínimo de 8 caracteres)</label>
+                    <input type="password" id="modal-senha-nova" required minlength="8" autocomplete="new-password">
                 </div>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button type="submit" class="btn-primary" style="flex: 1;">Atualizar Senha</button>
-                    <button type="button" class="btn-outline" onclick="fecharModalSenha()" style="flex: 1;">Cancelar</button>
+
+                <div class="modal-actions-row">
+                    <button type="submit" class="btn-primary">Atualizar Senha</button>
+                    <button type="button" class="btn-outline" onclick="fecharModalSenha()">Cancelar</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Script Principal -->
     <script src="func.js" type="module"></script>
+    
+    <!-- Registro do Service Worker PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado com sucesso:', reg.scope))
+                    .catch(err => console.log('Falha ao registrar Service Worker:', err));
+            });
+        }
+    </script>
 </body>
 </html>
