@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Áudio S.A. - Sistema Financeiro Oficial</title>
+    <title>Áudio S.A. - Smart Financial Command</title>
     
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <meta name="theme-color" content="#123746">
+    <meta name="theme-color" content="#07141b">
     <link rel="apple-touch-icon" href="logo.png">
 </head>
 <body>
 
+    <!-- TELA DE AUTENTICAÇÃO -->
     <section id="auth-screen" class="screen active">
         <div class="auth-card">
             <div class="logo-container">
                 <img src="logo.png" alt="Áudio S.A. Logo" class="clinica-logo-img" onerror="this.style.display='none'">
-                <p>Sistema Financeiro Oficial</p>
+                <p>Smart Financial Command</p>
             </div>
 
             <form id="form-login" class="auth-form active">
@@ -42,7 +43,7 @@
 
             <form id="form-alterar-primeiro-acesso" class="auth-form" style="display: none;">
                 <h3>Alterar Senha Temporária</h3>
-                <p style="font-size: 0.85rem; color: var(--danger); margin-bottom: 10px;">Por segurança e conformidade, defina uma nova senha pessoal (mínimo de 8 caracteres).</p>
+                <p style="font-size: 0.85rem; color: var(--danger); margin-bottom: 10px;">Por segurança, defina uma nova senha pessoal (mínimo de 8 caracteres).</p>
                 <div class="campo">
                     <label>Nova Senha</label>
                     <input type="password" id="nova-senha-1" required minlength="8">
@@ -56,30 +57,49 @@
         </div>
     </section>
 
-    <div id="app-dashboard" class="app-container hidden">
+    <!-- PAINEL PRINCIPAL COM LAYOUT DE COMANDO -->
+    <div id="app-dashboard" class="app-command-layout hidden">
         
-        <header class="top-bar">
-            <div class="logo-area">
-                <img src="logo.png" alt="Logo Áudio S.A." class="brand-logo clinica-logo-img" onerror="this.style.display='none'">
-                <span class="brand-title">Áudio S.A. — Gestão Financeira</span>
+        <!-- SIDEBAR LATERAL -->
+        <aside class="sidebar">
+            <div>
+                <div class="sidebar-brand">
+                    <img src="logo.png" alt="Logo Áudio S.A." class="clinica-logo-img" onerror="this.style.display='none'">
+                    <span>Áudio S.A.</span>
+                </div>
+                
+                <div class="sidebar-nav">
+                    <button id="tab-btn-dashboard" class="nav-item-cmd active" onclick="mudarAba('dashboard')">
+                        📊 Dashboard Executivo
+                    </button>
+                    <button id="tab-btn-lancamento" class="nav-item-cmd" onclick="mudarAba('lancamento')">
+                        ➕ Novo Lançamento
+                    </button>
+                    <button id="tab-btn-historico" class="nav-item-cmd" onclick="mudarAba('historico')">
+                        📋 Histórico & Gestão
+                    </button>
+                </div>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <span id="user-role-badge" style="font-size: 0.8rem; background: rgba(255,255,255,0.15); padding: 5px 10px; border-radius: 6px;"></span>
-                <button id="btn-abrir-modal-senha" class="btn-logout">Alterar Senha</button>
-                <button id="btn-logout" class="btn-logout">Sair</button>
-            </div>
-        </header>
 
-        <main class="main-content">
+            <div class="sidebar-footer">
+                <span id="user-role-badge" style="text-align: center;">Perfil: ---</span>
+                <button id="btn-abrir-modal-senha" class="btn-cmd-outline">Alterar Senha</button>
+                <button id="btn-logout" class="btn-cmd-outline" style="border-color: var(--danger); color: var(--danger);">Sair da Sessão</button>
+            </div>
+        </aside>
+
+        <!-- CONTEÚDO DINÂMICO -->
+        <main class="command-content">
             
-            <div class="nav-tabs">
-                <button id="tab-btn-dashboard" class="tab-btn active" onclick="mudarAba('dashboard')">📊 Dashboard Executivo</button>
-                <button id="tab-btn-lancamento" class="tab-btn" onclick="mudarAba('lancamento')">➕ Novo Lançamento</button>
-                <button id="tab-btn-historico" class="tab-btn" onclick="mudarAba('historico')">📋 Histórico e Gestão</button>
-            </div>
+            <header class="command-header">
+                <div class="command-title">
+                    <h2>Centro de Comando Financeiro</h2>
+                    <p>Monitoramento em tempo real de entradas, saídas e indicadores operacionais.</p>
+                </div>
+            </header>
 
-            <!-- ABA 1: DASHBOARD -->
-            <div id="aba-dashboard" class="tab-content active-tab">
+            <!-- ABA 1: DASHBOARD EXECUTIVO -->
+            <div id="aba-dashboard" class="tab-content active-tab" style="display: flex; flex-direction: column; gap: 24px;">
                 <section class="kpi-grid">
                     <div class="kpi-card in">
                         <span>Recebimento Bruto</span>
@@ -111,9 +131,11 @@
                 </div>
             </div>
 
-            <!-- ABA 2: LANÇAMENTO & OCR -->
-            <div id="aba-lancamento" class="tab-content" style="display: none;">
-                <section id="secao-ocr" class="card-section" style="margin-bottom: 20px;">
+            <!-- ABA 2: NOVO LANÇAMENTO & OCR -->
+            <div id="aba-lancamento" class="tab-content" style="display: none; flex-direction: column; gap: 24px;">
+                
+                <!-- Módulo OCR Assistivo -->
+                <section id="secao-ocr" class="card-section">
                     <h3>Escanear Nota Fiscal (OCR Inteligente Assistido)</h3>
                     <div class="ocr-box">
                         <input type="file" id="ocr-file-input" accept="image/*" capture="environment" style="display: none;">
@@ -124,15 +146,15 @@
                         <div id="ocr-status" class="ocr-status">Aponte a câmera para a nota fiscal para pré-preenchimento (exige revisão humana).</div>
 
                         <div id="ocr-preview-container" class="ocr-preview-box">
-                            <h4 style="margin-bottom: 10px; color: var(--primary);">Revisão dos Dados Extraídos</h4>
+                            <h4 style="margin-bottom: 10px; color: var(--text-light);">Revisão dos Dados Extraídos</h4>
                             <div class="grid-form" style="margin-bottom: 10px;">
                                 <div>
                                     <label>Descrição:</label>
-                                    <input type="text" id="ocr-prev-desc" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                                    <input type="text" id="ocr-prev-desc" style="width:100%; padding:10px; border-radius:8px;">
                                 </div>
                                 <div>
                                     <label>Valor (R$):</label>
-                                    <input type="number" step="0.01" id="ocr-prev-val" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                                    <input type="number" step="0.01" id="ocr-prev-val" style="width:100%; padding:10px; border-radius:8px;">
                                 </div>
                             </div>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -203,10 +225,10 @@
                 </section>
             </div>
 
-            <!-- ABA 3: HISTÓRICO -->
-            <div id="aba-historico" class="tab-content" style="display: none;">
+            <!-- ABA 3: HISTÓRICO & GESTÃO -->
+            <div id="aba-historico" class="tab-content" style="display: none; flex-direction: column; gap: 24px;">
                 <section class="card-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                         <h3>Histórico de Movimentações</h3>
                         <div id="acoes-analista" style="display: none; gap: 10px;">
                             <button id="btn-export-csv" class="btn-outline">Exportar Excel (CSV)</button>
@@ -231,31 +253,31 @@
                 </section>
             </div>
 
+            <footer style="text-align: center; padding: 20px; font-size: 0.82rem; color: var(--text-muted); border-top: 1px solid rgba(138, 182, 193, 0.1); margin-top: auto;">
+                © 2026 Áudio S.A. - Smart Hospital Command Edition | Desenvolvido por <b>ayrandev</b>
+            </footer>
         </main>
+    </div>
 
-        <div id="modal-senha" class="modal-overlay hidden">
-            <div class="modal-card">
-                <h3>Alterar Senha de Acesso</h3>
-                <form id="form-modal-senha" style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
-                    <div class="campo">
-                        <label>Senha Atual</label>
-                        <input type="password" id="modal-senha-atual" required>
-                    </div>
-                    <div class="campo">
-                        <label>Nova Senha (mín. 8 caracteres)</label>
-                        <input type="password" id="modal-senha-nova" required minlength="8">
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button type="submit" class="btn-primary" style="flex: 1;">Atualizar Senha</button>
-                        <button type="button" class="btn-outline" onclick="fecharModalSenha()" style="flex: 1;">Cancelar</button>
-                    </div>
-                </form>
-            </div>
+    <!-- Modal de Alteração de Senha -->
+    <div id="modal-senha" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3>Alterar Senha de Acesso</h3>
+            <form id="form-modal-senha" style="display: flex; flex-direction: column; gap: 14px; margin-top: 15px;">
+                <div class="campo">
+                    <label>Senha Atual</label>
+                    <input type="password" id="modal-senha-atual" required>
+                </div>
+                <div class="campo">
+                    <label>Nova Senha (mín. 8 caracteres)</label>
+                    <input type="password" id="modal-senha-nova" required minlength="8">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button type="submit" class="btn-primary" style="flex: 1;">Atualizar Senha</button>
+                    <button type="button" class="btn-outline" onclick="fecharModalSenha()" style="flex: 1;">Cancelar</button>
+                </div>
+            </form>
         </div>
-
-        <footer style="text-align: center; padding: 20px; font-size: 0.82rem; color: #6c7d8a; border-top: 1px solid #d0dce3; margin-top: 30px;">
-            © 2026 Áudio S.A. - Todos os direitos reservados | Desenvolvido por <b>ayrandev</b>
-        </footer>
     </div>
 
     <script src="func.js" type="module"></script>
