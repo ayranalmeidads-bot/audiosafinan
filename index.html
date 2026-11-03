@@ -169,26 +169,7 @@
                     </div>
                 </section>
 
-                <section id="painel-compromissos-despesas" class="card-section future-payments-panel" aria-labelledby="titulo-compromissos-despesas">
-                    <div class="section-header-title future-payments-heading">
-                        <div><h3 id="titulo-compromissos-despesas">Compromissos financeiros futuros</h3><p class="section-desc">Parcelas contratadas ainda não pagas. A agenda mostra cada vencimento pelos próximos 12 meses; somente pagamentos confirmados entram nas saídas realizadas.</p></div>
-                        <button type="button" id="btn-atualizar-compromissos" class="btn-outline">Atualizar agenda</button>
-                    </div>
-                    <div class="commitment-summary-grid">
-                        <div class="commitment-summary-item overdue"><span>Vencidas</span><strong id="compromissos-vencidos">0</strong><small id="compromissos-vencidos-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item"><span>Próximos 30 dias</span><strong id="compromissos-30">0</strong><small id="compromissos-30-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item"><span>Próximos 60 dias</span><strong id="compromissos-60">0</strong><small id="compromissos-60-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item"><span>Próximos 90 dias</span><strong id="compromissos-90">0</strong><small id="compromissos-90-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item annual"><span>Próximos 12 meses</span><strong id="compromissos-12-meses">0</strong><small id="compromissos-12-meses-valor">R$ 0,00</small></div>
-                    </div>
-                    <div class="table-responsive commitment-table-wrap">
-                        <table class="commitment-table">
-                            <thead><tr><th>Vencimento</th><th>Despesa</th><th>Parcela</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
-                            <tbody id="compromissos-despesas-list"><tr><td colspan="6" class="empty-cell">A agenda será carregada para Gerência e Analista.</td></tr></tbody>
-                        </table>
-                    </div>
-                    <p id="compromissos-despesas-status" class="field-help" role="status" aria-live="polite">A previsão não altera o saldo operacional.</p>
-                </section>
+                
 
                 <section class="kpi-grid">
                     <div class="kpi-card in"><div class="kpi-icon-box">💰</div><div class="kpi-info"><span>Entradas operacionais</span><strong id="total-entradas">R$ 0,00</strong></div></div>
@@ -211,6 +192,27 @@
                 </div>
                 <div class="field-warning" id="bi-qualidade-aviso">Os registros antigos sem composição de taxa são contabilizados pelo campo operacional existente, mas não entram nos totais documentados de bruto e taxas.</div>
             </section>
+
+            <section id="painel-compromissos-despesas" class="card-section future-payments-panel" aria-labelledby="titulo-compromissos-despesas">
+                    <div class="section-header-title future-payments-heading">
+                        <div><h3 id="titulo-compromissos-despesas">Compromissos financeiros futuros</h3><p class="section-desc">Parcelas contratadas ainda não pagas. A agenda mostra cada vencimento pelos próximos 12 meses; somente pagamentos confirmados entram nas saídas realizadas.</p></div>
+                        <button type="button" id="btn-atualizar-compromissos" class="btn-outline">Atualizar agenda</button>
+                    </div>
+                    <div class="commitment-summary-grid">
+                        <div class="commitment-summary-item overdue"><span>Vencidas</span><strong id="compromissos-vencidos">0</strong><small id="compromissos-vencidos-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item"><span>Próximos 30 dias</span><strong id="compromissos-30">0</strong><small id="compromissos-30-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item"><span>Próximos 60 dias</span><strong id="compromissos-60">0</strong><small id="compromissos-60-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item"><span>Próximos 90 dias</span><strong id="compromissos-90">0</strong><small id="compromissos-90-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item annual"><span>Próximos 12 meses</span><strong id="compromissos-12-meses">0</strong><small id="compromissos-12-meses-valor">R$ 0,00</small></div>
+                    </div>
+                    <div class="table-responsive commitment-table-wrap">
+                        <table class="commitment-table">
+                            <thead><tr><th>Vencimento</th><th>Despesa</th><th>Parcela</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
+                            <tbody id="compromissos-despesas-list"><tr><td colspan="6" class="empty-cell">A agenda será carregada para Gerência e Analista.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <p id="compromissos-despesas-status" class="field-help" role="status" aria-live="polite">A previsão não altera o saldo operacional.</p>
+                </section>
 
             <section id="aba-lancamento" class="tab-content hidden">
                 <section id="secao-ocr" class="card-section ocr-section-container">
