@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="pt-BR" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -77,6 +76,255 @@
             .bi-filter-controls { gap:6px; }
             .bi-filter-clear, .bi-filter-toggle { min-height:34px; padding:6px 9px; }
         }
+    
+
+        /* =====================================================
+           DASHBOARD — ENQUADRAMENTO RESPONSIVO E COMPACTO
+           Regras escopadas ao dashboard para não alterar telas
+           de lançamento, histórico ou modais.
+           ===================================================== */
+        #aba-dashboard {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        #aba-dashboard,
+        #aba-dashboard * {
+            box-sizing: border-box;
+        }
+        #aba-dashboard > *,
+        #aba-dashboard .card-section,
+        #aba-dashboard .bi-filter-panel,
+        #aba-dashboard .future-payments-panel,
+        #aba-dashboard .kpi-grid,
+        #aba-dashboard .bi-kpi-grid,
+        #aba-dashboard .charts-grid {
+            min-width: 0;
+            max-width: 100%;
+        }
+        #aba-dashboard .kpi-grid,
+        #aba-dashboard .bi-kpi-grid,
+        #aba-dashboard .charts-grid {
+            display: grid;
+            width: 100%;
+        }
+        #aba-dashboard .kpi-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+        #aba-dashboard .bi-kpi-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin: 12px 0 !important;
+        }
+        #aba-dashboard .charts-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+        #aba-dashboard .kpi-card,
+        #aba-dashboard .bi-kpi-card,
+        #aba-dashboard .charts-grid > .card-section {
+            min-width: 0;
+            margin: 0;
+        }
+        #aba-dashboard .kpi-card,
+        #aba-dashboard .bi-kpi-card {
+            overflow-wrap: anywhere;
+        }
+        #aba-dashboard .kpi-info,
+        #aba-dashboard .kpi-info strong {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        #aba-dashboard .chart-container {
+            position: relative;
+            width: 100%;
+            height: clamp(220px, 25vw, 300px);
+            min-height: 220px;
+        }
+        #aba-dashboard .chart-container canvas {
+            max-width: 100% !important;
+        }
+        #aba-dashboard .future-payments-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+        }
+        #aba-dashboard .future-payments-title {
+            flex: 1 1 420px;
+            min-width: 0;
+        }
+        #aba-dashboard .future-payments-title h3 {
+            margin-top: 0;
+        }
+        #aba-dashboard .future-payments-controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex: 0 1 auto;
+            flex-wrap: wrap;
+        }
+        #aba-dashboard .future-payments-controls button {
+            min-height: 36px;
+            white-space: normal;
+        }
+        #aba-dashboard .future-payments-content {
+            display: block;
+            min-width: 0;
+            margin-top: 14px;
+        }
+        #aba-dashboard .future-payments-content.is-collapsed {
+            display: none;
+        }
+        #aba-dashboard .commitment-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            min-width: 0;
+        }
+        #aba-dashboard .commitment-summary-item {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        #aba-dashboard .commitment-table-wrap {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #aba-dashboard .commitment-table {
+            width: 100%;
+            min-width: 700px;
+        }
+        #aba-dashboard .bi-filter-header,
+        #aba-dashboard .bi-filter-controls {
+            min-width: 0;
+        }
+
+        @media (max-width: 1100px) {
+            #aba-dashboard .bi-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            #aba-dashboard .commitment-summary-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 700px) {
+            #aba-dashboard {
+                padding-left: 0;
+                padding-right: 0;
+            }
+            #aba-dashboard .kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 9px;
+            }
+            #aba-dashboard .bi-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 9px;
+                margin: 10px 0 !important;
+            }
+            #aba-dashboard .charts-grid {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 10px;
+            }
+            #aba-dashboard .kpi-card,
+            #aba-dashboard .bi-kpi-card,
+            #aba-dashboard .charts-grid > .card-section,
+            #aba-dashboard .future-payments-panel {
+                padding: 11px;
+                border-radius: 12px;
+            }
+            #aba-dashboard .kpi-card {
+                gap: 8px;
+            }
+            #aba-dashboard .kpi-icon-box {
+                width: 34px;
+                height: 34px;
+                flex: 0 0 34px;
+            }
+            #aba-dashboard .kpi-info span,
+            #aba-dashboard .bi-kpi-card span {
+                font-size: .76rem;
+                line-height: 1.3;
+            }
+            #aba-dashboard .kpi-info strong {
+                font-size: clamp(.88rem, 3.8vw, 1.08rem);
+                line-height: 1.25;
+            }
+            #aba-dashboard .bi-kpi-card strong {
+                font-size: clamp(.92rem, 4vw, 1.12rem);
+                line-height: 1.25;
+            }
+            #aba-dashboard .bi-kpi-card small {
+                font-size: .7rem;
+                line-height: 1.3;
+            }
+            #aba-dashboard .chart-container {
+                height: 230px;
+                min-height: 210px;
+            }
+            #aba-dashboard .future-payments-heading {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            #aba-dashboard .future-payments-title {
+                flex: 1 1 auto;
+                width: 100%;
+            }
+            #aba-dashboard .future-payments-title .section-desc {
+                font-size: .78rem;
+                line-height: 1.4;
+                margin-bottom: 0;
+            }
+            #aba-dashboard .future-payments-controls {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: 100%;
+                gap: 7px;
+            }
+            #aba-dashboard .future-payments-controls button {
+                width: 100%;
+                min-width: 0;
+                min-height: 38px;
+                padding: 8px 9px;
+                font-size: .78rem;
+            }
+            #aba-dashboard .commitment-summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+            #aba-dashboard .commitment-summary-item {
+                padding: 9px;
+            }
+            #aba-dashboard .commitment-table {
+                min-width: 680px;
+            }
+            #aba-dashboard .bi-filter-panel {
+                padding: 11px;
+                margin-bottom: 10px;
+            }
+        }
+
+        @media (max-width: 390px) {
+            #aba-dashboard .future-payments-controls {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            #aba-dashboard .chart-container {
+                height: 215px;
+                min-height: 200px;
+            }
+            #aba-dashboard .kpi-card,
+            #aba-dashboard .bi-kpi-card {
+                padding: 9px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -169,7 +417,37 @@
                     </div>
                 </section>
 
-                
+                <section id="painel-compromissos-despesas" class="card-section future-payments-panel" aria-labelledby="titulo-compromissos-despesas">
+                    <div class="section-header-title future-payments-heading">
+                        <div class="future-payments-title">
+                            <h3 id="titulo-compromissos-despesas">Compromissos financeiros futuros</h3>
+                            <p class="section-desc">Parcelas contratadas ainda não pagas. A agenda mostra cada vencimento pelos próximos 12 meses; somente pagamentos confirmados entram nas saídas realizadas.</p>
+                        </div>
+                        <div class="future-payments-controls">
+                            <button type="button" id="btn-toggle-compromissos" class="btn-outline future-payments-toggle"
+                                aria-expanded="true" aria-controls="conteudo-compromissos-despesas">
+                                Ocultar custos futuros
+                            </button>
+                            <button type="button" id="btn-atualizar-compromissos" class="btn-outline">Atualizar agenda</button>
+                        </div>
+                    </div>
+                    <div id="conteudo-compromissos-despesas" class="future-payments-content">
+                        <div class="commitment-summary-grid">
+                            <div class="commitment-summary-item overdue"><span>Vencidas</span><strong id="compromissos-vencidos">0</strong><small id="compromissos-vencidos-valor">R$ 0,00</small></div>
+                            <div class="commitment-summary-item"><span>Próximos 30 dias</span><strong id="compromissos-30">0</strong><small id="compromissos-30-valor">R$ 0,00</small></div>
+                            <div class="commitment-summary-item"><span>Próximos 60 dias</span><strong id="compromissos-60">0</strong><small id="compromissos-60-valor">R$ 0,00</small></div>
+                            <div class="commitment-summary-item"><span>Próximos 90 dias</span><strong id="compromissos-90">0</strong><small id="compromissos-90-valor">R$ 0,00</small></div>
+                            <div class="commitment-summary-item annual"><span>Próximos 12 meses</span><strong id="compromissos-12-meses">0</strong><small id="compromissos-12-meses-valor">R$ 0,00</small></div>
+                        </div>
+                        <div class="table-responsive commitment-table-wrap">
+                            <table class="commitment-table">
+                                <thead><tr><th>Vencimento</th><th>Despesa</th><th>Parcela</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
+                                <tbody id="compromissos-despesas-list"><tr><td colspan="6" class="empty-cell">A agenda será carregada para Gerência e Analista.</td></tr></tbody>
+                            </table>
+                        </div>
+                        <p id="compromissos-despesas-status" class="field-help" role="status" aria-live="polite">A previsão não altera o saldo operacional.</p>
+                    </div>
+                </section>
 
                 <section class="kpi-grid">
                     <div class="kpi-card in"><div class="kpi-icon-box">💰</div><div class="kpi-info"><span>Entradas operacionais</span><strong id="total-entradas">R$ 0,00</strong></div></div>
@@ -192,27 +470,6 @@
                 </div>
                 <div class="field-warning" id="bi-qualidade-aviso">Os registros antigos sem composição de taxa são contabilizados pelo campo operacional existente, mas não entram nos totais documentados de bruto e taxas.</div>
             </section>
-
-            <section id="painel-compromissos-despesas" class="card-section future-payments-panel" aria-labelledby="titulo-compromissos-despesas">
-                    <div class="section-header-title future-payments-heading">
-                        <div><h3 id="titulo-compromissos-despesas">Compromissos financeiros futuros</h3><p class="section-desc">Parcelas contratadas ainda não pagas. A agenda mostra cada vencimento pelos próximos 12 meses; somente pagamentos confirmados entram nas saídas realizadas.</p></div>
-                        <button type="button" id="btn-atualizar-compromissos" class="btn-outline">Atualizar agenda</button>
-                    </div>
-                    <div class="commitment-summary-grid">
-                        <div class="commitment-summary-item overdue"><span>Vencidas</span><strong id="compromissos-vencidos">0</strong><small id="compromissos-vencidos-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item"><span>Próximos 30 dias</span><strong id="compromissos-30">0</strong><small id="compromissos-30-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item"><span>Próximos 60 dias</span><strong id="compromissos-60">0</strong><small id="compromissos-60-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item"><span>Próximos 90 dias</span><strong id="compromissos-90">0</strong><small id="compromissos-90-valor">R$ 0,00</small></div>
-                        <div class="commitment-summary-item annual"><span>Próximos 12 meses</span><strong id="compromissos-12-meses">0</strong><small id="compromissos-12-meses-valor">R$ 0,00</small></div>
-                    </div>
-                    <div class="table-responsive commitment-table-wrap">
-                        <table class="commitment-table">
-                            <thead><tr><th>Vencimento</th><th>Despesa</th><th>Parcela</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
-                            <tbody id="compromissos-despesas-list"><tr><td colspan="6" class="empty-cell">A agenda será carregada para Gerência e Analista.</td></tr></tbody>
-                        </table>
-                    </div>
-                    <p id="compromissos-despesas-status" class="field-help" role="status" aria-live="polite">A previsão não altera o saldo operacional.</p>
-                </section>
 
             <section id="aba-lancamento" class="tab-content hidden">
                 <section id="secao-ocr" class="card-section ocr-section-container">
@@ -365,5 +622,3 @@
     </script>
 </body>
 </html>
-
-

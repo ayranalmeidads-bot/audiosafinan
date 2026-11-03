@@ -1992,6 +1992,36 @@
         botao.setAttribute('aria-label', visiveis ? 'Ocultar filtros do dashboard' : 'Mostrar filtros do dashboard');
     }
 
+    // Controla a seção de compromissos futuros sem alterar os dados ou cálculos financeiros.
+    function definirCompromissosDespesasVisiveis(visiveis) {
+        const painel = $('conteudo-compromissos-despesas');
+        const botao = $('btn-toggle-compromissos');
+        if (!painel || !botao) return;
+
+        painel.classList.toggle('is-collapsed', !visiveis);
+        botao.setAttribute('aria-expanded', String(visiveis));
+        botao.textContent = visiveis ? 'Ocultar custos futuros' : 'Mostrar custos futuros';
+        botao.setAttribute(
+            'aria-label',
+            visiveis ? 'Ocultar compromissos financeiros futuros' : 'Mostrar compromissos financeiros futuros'
+        );
+    }
+
+    function configurarPainelCompromissos() {
+        const painel = $('conteudo-compromissos-despesas');
+        const botao = $('btn-toggle-compromissos');
+        if (!painel || !botao) return;
+
+        // Mesmo comportamento dos filtros: recolhido por padrão no celular e aberto no desktop.
+        const celular = window.matchMedia?.('(max-width: 700px)').matches || false;
+        definirCompromissosDespesasVisiveis(!celular);
+
+        botao.addEventListener('click', () => {
+            const atualmenteVisiveis = !painel.classList.contains('is-collapsed');
+            definirCompromissosDespesasVisiveis(!atualmenteVisiveis);
+        });
+    }
+
     function configurarFiltrosDashboard() {
         ['filtro-dashboard-inicio', 'filtro-dashboard-fim', 'filtro-dashboard-categoria', 'filtro-dashboard-profissional', 'filtro-dashboard-pagamento', 'filtro-dashboard-bandeira'].forEach(id => {
             $(id)?.addEventListener('change', atualizarDashboardVisual);
@@ -2076,6 +2106,7 @@
         $('btn-export-csv')?.addEventListener('click', exportarCSV);
         $('btn-export-pdf')?.addEventListener('click', exportarPDF);
         configurarFiltrosDashboard();
+        configurarPainelCompromissos();
         $('btn-fechar-modal-recorrencias')?.addEventListener('click', fecharModalRecorrencias);
         $('btn-ok-modal-recorrencias')?.addEventListener('click', fecharModalRecorrencias);
     }
