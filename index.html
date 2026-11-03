@@ -25,6 +25,14 @@
             gap: 12px;
         }
         .bi-filter-grid .campo, .financial-preview-grid > div { min-width: 0; }
+        .bi-filter-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .bi-filter-heading { min-width:0; }
+        .bi-filter-heading h3 { margin:0 0 4px; }
+        .bi-filter-heading .section-desc { margin:0; }
+        .bi-filter-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .bi-filter-fields { margin-top:12px; }
+        .bi-filter-fields.is-collapsed { display:none; }
+        .bi-filter-toggle, .bi-filter-clear { min-height:36px; padding:7px 12px; font-size:.84rem; }
         .bi-filter-actions { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
         .bi-kpi-card {
             border: 1px solid var(--border-color, #dce5e8);
@@ -54,6 +62,20 @@
         @media (max-width:700px) {
             .bi-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
             .recurrence-item { align-items:flex-start; flex-direction:column; }
+            .bi-filter-panel { padding:11px; margin-bottom:12px; }
+            .bi-filter-header { align-items:flex-start; }
+            .bi-filter-controls { width:100%; }
+            .bi-filter-toggle { flex:1 1 auto; }
+            .bi-filter-clear { flex:0 0 auto; }
+            .bi-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+            .bi-filter-grid .campo { gap:4px; }
+            .bi-filter-grid .campo label { font-size:.76rem; }
+            .bi-filter-grid input, .bi-filter-grid select { min-height:38px; padding:8px; font-size:.82rem; }
+        }
+        @media (max-width:390px) {
+            .bi-filter-grid { grid-template-columns:1fr; }
+            .bi-filter-controls { gap:6px; }
+            .bi-filter-clear, .bi-filter-toggle { min-height:34px; padding:6px 9px; }
         }
     </style>
 </head>
@@ -121,16 +143,29 @@
             <div id="global-feedback" class="feedback-banner hidden" role="status"></div>
 
             <section id="aba-dashboard" class="tab-content hidden">
-                <section class="bi-filter-panel">
-                    <div class="section-header-title"><div><h3>Filtros de análise</h3><p class="section-desc">Os indicadores e gráficos abaixo respeitam os filtros selecionados.</p></div></div>
-                    <div class="bi-filter-grid">
-                        <div class="campo"><label for="filtro-dashboard-inicio">Data inicial</label><input type="date" id="filtro-dashboard-inicio"></div>
-                        <div class="campo"><label for="filtro-dashboard-fim">Data final</label><input type="date" id="filtro-dashboard-fim"></div>
-                        <div class="campo"><label for="filtro-dashboard-categoria">Categoria</label><select id="filtro-dashboard-categoria"><option value="todas">Todas</option></select></div>
-                        <div class="campo"><label for="filtro-dashboard-profissional">Profissional</label><select id="filtro-dashboard-profissional"><option value="todos">Todos</option></select></div>
-                        <div class="campo"><label for="filtro-dashboard-pagamento">Pagamento</label><select id="filtro-dashboard-pagamento"><option value="todos">Todas as formas</option><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito parcelado</option></select></div>
-                        <div class="campo"><label for="filtro-dashboard-bandeira">Bandeira</label><select id="filtro-dashboard-bandeira"><option value="todas">Todas</option><option>Mastercard</option><option>Visa</option><option>Elo</option><option>Amex</option></select></div>
-                        <div class="bi-filter-actions"><button type="button" id="btn-limpar-filtros-dashboard" class="btn-outline">Limpar filtros</button></div>
+                <section class="bi-filter-panel" aria-labelledby="titulo-filtros-dashboard">
+                    <div class="bi-filter-header">
+                        <div class="bi-filter-heading">
+                            <h3 id="titulo-filtros-dashboard">Filtros de análise</h3>
+                            <p class="section-desc">Os indicadores e gráficos respeitam os filtros selecionados.</p>
+                        </div>
+                        <div class="bi-filter-controls">
+                            <button type="button" id="btn-limpar-filtros-dashboard" class="btn-outline bi-filter-clear">Limpar</button>
+                            <button type="button" id="btn-toggle-filtros-dashboard" class="btn-outline bi-filter-toggle"
+                                aria-expanded="true" aria-controls="painel-campos-filtros-dashboard">
+                                Ocultar filtros
+                            </button>
+                        </div>
+                    </div>
+                    <div id="painel-campos-filtros-dashboard" class="bi-filter-fields">
+                        <div class="bi-filter-grid">
+                            <div class="campo"><label for="filtro-dashboard-inicio">Data inicial</label><input type="date" id="filtro-dashboard-inicio"></div>
+                            <div class="campo"><label for="filtro-dashboard-fim">Data final</label><input type="date" id="filtro-dashboard-fim"></div>
+                            <div class="campo"><label for="filtro-dashboard-categoria">Categoria</label><select id="filtro-dashboard-categoria"><option value="todas">Todas</option></select></div>
+                            <div class="campo"><label for="filtro-dashboard-profissional">Profissional</label><select id="filtro-dashboard-profissional"><option value="todos">Todos</option></select></div>
+                            <div class="campo"><label for="filtro-dashboard-pagamento">Pagamento</label><select id="filtro-dashboard-pagamento"><option value="todos">Todas as formas</option><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito parcelado</option></select></div>
+                            <div class="campo"><label for="filtro-dashboard-bandeira">Bandeira</label><select id="filtro-dashboard-bandeira"><option value="todas">Todas</option><option>Mastercard</option><option>Visa</option><option>Elo</option><option>Amex</option></select></div>
+                        </div>
                     </div>
                 </section>
 
@@ -284,3 +319,4 @@
     </script>
 </body>
 </html>
+

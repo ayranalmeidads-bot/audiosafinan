@@ -65,6 +65,7 @@
     };
 
     let canalTransacoes = null;
+    let temporizadorRealtime = null;
     let supabaseClient = null;
     let sessaoAtual = null;
     let transacoes = [];
@@ -159,6 +160,50 @@
         });
     }
 
+    // Assina mudanças somente depois que o perfil financeiro foi autorizado.
+    // A RLS continua sendo a barreira real; a assinatura apenas atualiza a interface.
+    function configurarRealtimeTransacoes() {
+        if (!exigirPerfil(['gerente', 'analista']) || !supabaseClient || canalTransacoes) return;
+
+        canalTransacoes = supabaseClient
+            .channel('audio-sa-transacoes-dashboard')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'transacoes'
+            }, () => {
+                if (temporizadorRealtime) clearTimeout(temporizadorRealtime);
+                temporizadorRealtime = setTimeout(() => {
+                    temporizadorRealtime = null;
+                    if (exigirPerfil(['gerente', 'analista']) && !carregando) {
+                        carregarTransacoes();
+                    }
+                }, 350);
+            })
+            .subscribe((status) => {
+                if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                    console.error('Falha na assinatura Realtime de transacoes:', status);
+                    feedbackGlobal('A atualização automática não está disponível. Atualize a página para buscar os dados mais recentes.', 'warning');
+                }
+            });
+    }
+
+    async function removerRealtimeTransacoes() {
+        if (temporizadorRealtime) {
+            clearTimeout(temporizadorRealtime);
+            temporizadorRealtime = null;
+        }
+        if (canalTransacoes && supabaseClient) {
+            const canal = canalTransacoes;
+            canalTransacoes = null;
+            try {
+                await supabaseClient.removeChannel(canal);
+            } catch (error) {
+                console.warn('Não foi possível encerrar o canal Realtime:', error);
+            }
+        }
+    }
+
     function configurarSelects() {
         const profissional = $('t-profissional');
         if (profissional) {
@@ -243,39 +288,6 @@
             return;
         }
 
-
-        function configurarRealtimeTransacoes() {
-    if (!exigirPerfil(['gerente', 'analista'])) return;
-
-    if (canalTransacoes) {
-        supabaseClient.removeChannel(canalTransacoes);
-        canalTransacoes = null;
-    }
-
-    canalTransacoes = supabaseClient
-        .channel('audio-sa-transacoes-dashboard')
-        .on(
-            'postgres_changes',
-            {
-                event: '*',
-                schema: 'public',
-                table: 'transacoes'
-            },
-            async () => {
-                if (exigirPerfil(['gerente', 'analista'])) {
-                    await carregarTransacoes();
-                }
-            }
-        )
-        .subscribe((status) => {
-            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                console.error(
-                    'Falha na atualização em tempo real do dashboard:',
-                    status
-                );
-            }
-        });
-    }
         const contexto = obterContextoTaxa();
         const modo = $('t-modo-taxa');
         if (ajustarModo && !suprimindoMudancaFinanceira && !estadoEdicao) {
@@ -505,6 +517,7 @@
         }
         await carregarTransacoes();
         await carregarRecorrencias();
+        configurarRealtimeTransacoes();
     }
 
     function limparDashboard() {
@@ -548,11 +561,8 @@
             transacoes = [];
             recorrencias = [];
             recorrenciasProcessadasNaSessao = false;
-            if (canalTransacoes) {
-            await supabaseClient.removeChannel(canalTransacoes);
-            canalTransacoes = null;
-            location.reload();
-        }
+            await removerRealtimeTransacoes();
+            window.location.reload();
         } catch (error) {
             feedbackGlobal(`Não foi possível encerrar a sessão: ${error.message}`, 'error');
         }
@@ -1596,10 +1606,32 @@
         reiniciar();
     }
 
+    function definirFiltrosDashboardVisiveis(visiveis) {
+        const painel = $('painel-campos-filtros-dashboard');
+        const botao = $('btn-toggle-filtros-dashboard');
+        if (!painel || !botao) return;
+
+        painel.classList.toggle('is-collapsed', !visiveis);
+        botao.setAttribute('aria-expanded', String(visiveis));
+        botao.textContent = visiveis ? 'Ocultar filtros' : 'Mostrar filtros';
+        botao.setAttribute('aria-label', visiveis ? 'Ocultar filtros do dashboard' : 'Mostrar filtros do dashboard');
+    }
+
     function configurarFiltrosDashboard() {
         ['filtro-dashboard-inicio', 'filtro-dashboard-fim', 'filtro-dashboard-categoria', 'filtro-dashboard-profissional', 'filtro-dashboard-pagamento', 'filtro-dashboard-bandeira'].forEach(id => {
             $(id)?.addEventListener('change', atualizarDashboardVisual);
         });
+
+        $('btn-toggle-filtros-dashboard')?.addEventListener('click', () => {
+            const painel = $('painel-campos-filtros-dashboard');
+            const atualmenteVisiveis = !painel?.classList.contains('is-collapsed');
+            definirFiltrosDashboardVisiveis(!atualmenteVisiveis);
+        });
+
+        // No celular, o dashboard abre priorizando KPIs e gráficos; no desktop os filtros permanecem visíveis.
+        const celular = window.matchMedia?.('(max-width: 700px)').matches || false;
+        definirFiltrosDashboardVisiveis(!celular);
+
         $('btn-limpar-filtros-dashboard')?.addEventListener('click', () => {
             ['filtro-dashboard-inicio', 'filtro-dashboard-fim'].forEach(id => { if ($(id)) $(id).value = ''; });
             ['filtro-dashboard-categoria', 'filtro-dashboard-profissional', 'filtro-dashboard-pagamento', 'filtro-dashboard-bandeira'].forEach(id => {
@@ -1678,6 +1710,9 @@
                 if (!session) {
                     sessaoAtual = null;
                     recorrenciasProcessadasNaSessao = false;
+                    removerRealtimeTransacoes();
+                    transacoes = [];
+                    recorrencias = [];
                     $('app-dashboard')?.classList.add('hidden');
                     $('auth-screen')?.classList.remove('hidden');
                 }
@@ -1690,3 +1725,4 @@
         }
     });
 })();
+
