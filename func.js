@@ -64,6 +64,7 @@
         logs: ['Logs de Auditoria', 'Rastreabilidade das operações do sistema.']
     };
 
+    let canalTransacoes = null;
     let supabaseClient = null;
     let sessaoAtual = null;
     let transacoes = [];
@@ -242,6 +243,39 @@
             return;
         }
 
+
+        function configurarRealtimeTransacoes() {
+    if (!exigirPerfil(['gerente', 'analista'])) return;
+
+    if (canalTransacoes) {
+        supabaseClient.removeChannel(canalTransacoes);
+        canalTransacoes = null;
+    }
+
+    canalTransacoes = supabaseClient
+        .channel('audio-sa-transacoes-dashboard')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'transacoes'
+            },
+            async () => {
+                if (exigirPerfil(['gerente', 'analista'])) {
+                    await carregarTransacoes();
+                }
+            }
+        )
+        .subscribe((status) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.error(
+                    'Falha na atualização em tempo real do dashboard:',
+                    status
+                );
+            }
+        });
+    }
         const contexto = obterContextoTaxa();
         const modo = $('t-modo-taxa');
         if (ajustarModo && !suprimindoMudancaFinanceira && !estadoEdicao) {
@@ -514,7 +548,11 @@
             transacoes = [];
             recorrencias = [];
             recorrenciasProcessadasNaSessao = false;
+            if (canalTransacoes) {
+            await supabaseClient.removeChannel(canalTransacoes);
+            canalTransacoes = null;
             location.reload();
+        }
         } catch (error) {
             feedbackGlobal(`Não foi possível encerrar a sessão: ${error.message}`, 'error');
         }
