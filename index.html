@@ -10,6 +10,52 @@
     <link rel="apple-touch-icon" href="logo.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        /* Estilos restritos aos componentes novos desta manutenção. */
+        .bi-filter-panel, .bi-kpi-extra, .financial-preview, .recurrence-panel {
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #dce5e8);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .bi-filter-grid, .bi-kpi-grid, .financial-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+        .bi-filter-grid .campo, .financial-preview-grid > div { min-width: 0; }
+        .bi-filter-actions { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+        .bi-kpi-card {
+            border: 1px solid var(--border-color, #dce5e8);
+            border-radius: 12px;
+            padding: 14px;
+            background: var(--card-bg, #fff);
+            min-width: 0;
+        }
+        .bi-kpi-card span { display:block; color: var(--text-muted, #64748b); font-size: .82rem; margin-bottom: 6px; }
+        .bi-kpi-card strong { display:block; font-size: 1.22rem; overflow-wrap:anywhere; }
+        .bi-kpi-card small { display:block; color: var(--text-muted, #64748b); margin-top: 5px; }
+        .financial-preview-grid > div { border: 1px solid var(--border-color, #dce5e8); border-radius: 9px; padding: 10px; }
+        .financial-preview-grid span { display:block; color: var(--text-muted, #64748b); font-size: .78rem; }
+        .financial-preview-grid strong { display:block; margin-top: 5px; font-size: 1rem; }
+        .field-help { display:block; font-size:.82rem; color:var(--text-muted, #64748b); margin-top:5px; }
+        .field-warning { display:block; color:#9a6700; background:#fff7df; border:1px solid #f0d98b; border-radius:8px; padding:10px; margin-top:8px; font-size:.85rem; }
+        .field-error { display:block; color:#a12b2b; background:#fff0f0; border:1px solid #f1c2c2; border-radius:8px; padding:10px; margin-top:8px; font-size:.85rem; }
+        .ocr-modal-wide { width:min(900px, calc(100vw - 28px)); max-width:900px; }
+        #ocr-text-result { width:100%; min-height:260px; resize:vertical; font-family:inherit; line-height:1.5; }
+        .ocr-modal-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:12px; }
+        .chart-container { min-height:260px; }
+        .recurrence-item { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border-color, #dce5e8); }
+        .recurrence-item:last-child { border-bottom:0; }
+        .recurrence-item small { display:block; color:var(--text-muted, #64748b); }
+        .table-responsive { overflow-x:auto; }
+        #tabela-historico { min-width:1000px; }
+        @media (max-width:700px) {
+            .bi-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .recurrence-item { align-items:flex-start; flex-direction:column; }
+        }
+    </style>
 </head>
 <body>
     <section id="auth-screen" class="screen active">
@@ -26,15 +72,12 @@
 
             <form id="form-login">
                 <label for="login-usuario">E-mail de acesso</label>
-                <input type="email" id="login-usuario" placeholder="Digite seu e-mail"
-                       autocomplete="username" required>
+                <input type="email" id="login-usuario" placeholder="Digite seu e-mail" autocomplete="username" required>
                 <label for="login-senha">Senha</label>
-                <input type="password" id="login-senha" placeholder="Digite sua senha"
-                       autocomplete="current-password" required>
+                <input type="password" id="login-senha" placeholder="Digite sua senha" autocomplete="current-password" required>
                 <button type="submit" id="btn-login">Entrar no sistema</button>
                 <div id="login-feedback" class="alert-box hidden" role="alert"></div>
             </form>
-
             <div id="auth-global-feedback" class="alert-box hidden" role="status"></div>
         </div>
     </section>
@@ -44,37 +87,19 @@
             <div class="sidebar-top">
                 <div class="sidebar-brand">
                     <img src="logo.png" alt="Logo Áudio S.A." class="clinica-logo-img" onerror="this.style.display='none'">
-                    <div class="brand-text">
-                        <span class="brand-title">Áudio S.A.</span>
-                        <span class="brand-subtitle">Gestão Clínica</span>
-                    </div>
+                    <div class="brand-text"><span class="brand-title">Áudio S.A.</span><span class="brand-subtitle">Gestão Clínica</span></div>
                     <button type="button" id="btn-close-mobile-menu" class="btn-icon-mobile-close" aria-label="Fechar menu">✕</button>
                 </div>
-
                 <nav class="sidebar-nav" id="sidebar-nav-container">
-                    <button id="nav-btn-dashboard" class="nav-item-cmd" type="button" onclick="mudarAba('dashboard')">
-                        <span class="nav-icon">📊</span><span class="nav-label">Dashboard Executivo</span>
-                    </button>
-                    <button id="nav-btn-lancamento" class="nav-item-cmd" type="button" onclick="mudarAba('lancamento')">
-                        <span class="nav-icon">➕</span><span class="nav-label">Novo Lançamento</span>
-                    </button>
-                    <button id="nav-btn-historico" class="nav-item-cmd" type="button" onclick="mudarAba('historico')">
-                        <span class="nav-icon">📋</span><span class="nav-label">Histórico &amp; Gestão</span>
-                    </button>
-                    <button id="nav-btn-usuarios" class="nav-item-cmd nav-admin-only hidden" type="button" onclick="mudarAba('usuarios')">
-                        <span class="nav-icon">👥</span><span class="nav-label">Gerenciar Usuários</span>
-                    </button>
-                    <button id="nav-btn-logs" class="nav-item-cmd nav-admin-only hidden" type="button" onclick="mudarAba('logs')">
-                        <span class="nav-icon">🛡️</span><span class="nav-label">Logs de Auditoria</span>
-                    </button>
+                    <button id="nav-btn-dashboard" class="nav-item-cmd" type="button" onclick="mudarAba('dashboard')"><span class="nav-icon">📊</span><span class="nav-label">Dashboard Executivo</span></button>
+                    <button id="nav-btn-lancamento" class="nav-item-cmd" type="button" onclick="mudarAba('lancamento')"><span class="nav-icon">➕</span><span class="nav-label">Novo Lançamento</span></button>
+                    <button id="nav-btn-historico" class="nav-item-cmd" type="button" onclick="mudarAba('historico')"><span class="nav-icon">📋</span><span class="nav-label">Histórico &amp; Gestão</span></button>
+                    <button id="nav-btn-usuarios" class="nav-item-cmd nav-admin-only hidden" type="button" onclick="mudarAba('usuarios')"><span class="nav-icon">👥</span><span class="nav-label">Gerenciar Usuários</span></button>
+                    <button id="nav-btn-logs" class="nav-item-cmd nav-admin-only hidden" type="button" onclick="mudarAba('logs')"><span class="nav-icon">🛡️</span><span class="nav-label">Logs de Auditoria</span></button>
                 </nav>
             </div>
-
             <div class="sidebar-footer">
-                <div class="user-info-card">
-                    <span id="user-role-badge" class="badge-role">Perfil: ---</span>
-                    <span id="user-name-display" class="user-name">Usuário</span>
-                </div>
+                <div class="user-info-card"><span id="user-role-badge" class="badge-role">Perfil: ---</span><span id="user-name-display" class="user-name">Usuário</span></div>
                 <div class="sidebar-actions">
                     <button type="button" id="btn-abrir-modal-senha" class="btn-cmd-outline btn-full-w">🔑 Alterar Senha</button>
                     <button type="button" id="btn-logout" class="btn-cmd-outline btn-danger-outline btn-full-w">🚪 Sair da Sessão</button>
@@ -83,114 +108,131 @@
         </aside>
 
         <div id="mobile-sidebar-overlay" class="mobile-overlay hidden"></div>
-
         <main class="command-content">
             <header class="command-header">
                 <div class="header-left">
                     <button type="button" id="btn-toggle-mobile-menu" class="btn-hamburger" aria-label="Abrir menu">☰</button>
-                    <div class="command-title">
-                        <h2 id="page-current-title">Novo Lançamento</h2>
-                        <p id="page-current-subtitle">Registre movimentações financeiras.</p>
-                    </div>
+                    <div class="command-title"><h2 id="page-current-title">Novo Lançamento</h2><p id="page-current-subtitle">Registre movimentações financeiras.</p></div>
                 </div>
                 <div class="header-right">
-                    <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" title="Alternar entre modo claro e escuro">
-                        <span id="theme-toggle-icon" class="theme-icon">☀️</span>
-                        <span id="theme-toggle-text" class="theme-text">Modo Claro</span>
-                    </button>
+                    <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" title="Alternar entre modo claro e escuro"><span id="theme-toggle-icon" class="theme-icon">☀️</span><span id="theme-toggle-text" class="theme-text">Modo Claro</span></button>
                 </div>
             </header>
-
             <div id="global-feedback" class="feedback-banner hidden" role="status"></div>
 
             <section id="aba-dashboard" class="tab-content hidden">
+                <section class="bi-filter-panel">
+                    <div class="section-header-title"><div><h3>Filtros de análise</h3><p class="section-desc">Os indicadores e gráficos abaixo respeitam os filtros selecionados.</p></div></div>
+                    <div class="bi-filter-grid">
+                        <div class="campo"><label for="filtro-dashboard-inicio">Data inicial</label><input type="date" id="filtro-dashboard-inicio"></div>
+                        <div class="campo"><label for="filtro-dashboard-fim">Data final</label><input type="date" id="filtro-dashboard-fim"></div>
+                        <div class="campo"><label for="filtro-dashboard-categoria">Categoria</label><select id="filtro-dashboard-categoria"><option value="todas">Todas</option></select></div>
+                        <div class="campo"><label for="filtro-dashboard-profissional">Profissional</label><select id="filtro-dashboard-profissional"><option value="todos">Todos</option></select></div>
+                        <div class="campo"><label for="filtro-dashboard-pagamento">Pagamento</label><select id="filtro-dashboard-pagamento"><option value="todos">Todas as formas</option><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito parcelado</option></select></div>
+                        <div class="campo"><label for="filtro-dashboard-bandeira">Bandeira</label><select id="filtro-dashboard-bandeira"><option value="todas">Todas</option><option>Mastercard</option><option>Visa</option><option>Elo</option><option>Amex</option></select></div>
+                        <div class="bi-filter-actions"><button type="button" id="btn-limpar-filtros-dashboard" class="btn-outline">Limpar filtros</button></div>
+                    </div>
+                </section>
+
                 <section class="kpi-grid">
-                    <div class="kpi-card in"><div class="kpi-icon-box">💰</div><div class="kpi-info"><span>Recebimento Líquido</span><strong id="total-entradas">R$ 0,00</strong></div></div>
+                    <div class="kpi-card in"><div class="kpi-icon-box">💰</div><div class="kpi-info"><span>Entradas operacionais</span><strong id="total-entradas">R$ 0,00</strong></div></div>
                     <div class="kpi-card out"><div class="kpi-icon-box">💸</div><div class="kpi-info"><span>Saídas / Despesas</span><strong id="total-saidas">R$ 0,00</strong></div></div>
-                    <div class="kpi-card total"><div class="kpi-icon-box">📈</div><div class="kpi-info"><span>Saldo Operacional</span><strong id="saldo-liquido">R$ 0,00</strong></div></div>
+                    <div class="kpi-card total"><div class="kpi-icon-box">📈</div><div class="kpi-info"><span>Saldo operacional</span><strong id="saldo-liquido">R$ 0,00</strong></div></div>
+                </section>
+                <section class="bi-kpi-grid" style="margin:16px 0">
+                    <div class="bi-kpi-card"><span>Faturamento bruto documentado</span><strong id="bi-total-bruto">R$ 0,00</strong><small>Somente registros com bruto conhecido</small></div>
+                    <div class="bi-kpi-card"><span>Taxas de cartão documentadas</span><strong id="bi-total-taxas">R$ 0,00</strong><small>Descontos registrados</small></div>
+                    <div class="bi-kpi-card"><span>Recebimento líquido documentado</span><strong id="bi-total-liquido">R$ 0,00</strong><small>Não inclui registros históricos incompletos</small></div>
+                    <div class="bi-kpi-card"><span>Taxa efetiva ponderada</span><strong id="bi-taxa-efetiva">—</strong><small>Taxas documentadas ÷ bruto sujeito a taxa</small></div>
+                    <div class="bi-kpi-card"><span>Ticket médio operacional</span><strong id="bi-ticket-medio">R$ 0,00</strong><small>Entradas operacionais ÷ quantidade de entradas</small></div>
+                    <div class="bi-kpi-card"><span>Lançamentos no filtro</span><strong id="bi-quantidade">0</strong><small><span id="bi-legado-count">0</span> entradas sem composição histórica completa</small></div>
                 </section>
                 <div class="charts-grid">
                     <section class="card-section"><h3>Fluxo Financeiro (Entradas vs. Saídas)</h3><div class="chart-container"><canvas id="financeBarChart"></canvas></div></section>
                     <section class="card-section"><h3>Distribuição por Categorias</h3><div class="chart-container"><canvas id="financePieChart"></canvas></div></section>
+                    <section class="card-section"><h3>Evolução mensal operacional</h3><div class="chart-container"><canvas id="financeLineChart"></canvas></div></section>
+                    <section class="card-section"><h3>Taxas documentadas por bandeira</h3><div class="chart-container"><canvas id="financeCardChart"></canvas></div></section>
                 </div>
+                <div class="field-warning" id="bi-qualidade-aviso">Os registros antigos sem composição de taxa são contabilizados pelo campo operacional existente, mas não entram nos totais documentados de bruto e taxas.</div>
             </section>
 
             <section id="aba-lancamento" class="tab-content hidden">
                 <section id="secao-ocr" class="card-section ocr-section-container">
-                    <div class="section-header-title"><span class="section-icon">📸</span><div><h3>Escanear Nota Fiscal / Comprovante</h3><p class="section-desc">Área demonstrativa: a extração OCR real ainda precisa ser integrada.</p></div></div>
+                    <div class="section-header-title"><span class="section-icon">📸</span><div><h3>Escanear Nota Fiscal / Comprovante</h3><p class="section-desc">A leitura de imagem é feita no navegador. Revise o texto reconhecido antes de utilizá-lo.</p></div></div>
                     <div class="ocr-box">
-                        <input type="file" id="ocr-file-input" accept="image/png,image/jpeg,application/pdf" capture="environment" hidden>
+                        <input type="file" id="ocr-file-input" accept="image/png,image/jpeg,image/webp,application/pdf" capture="environment" hidden>
                         <div class="ocr-actions-group">
                             <button type="button" id="btn-trigger-camera" class="btn-secondary">📸 Tirar Foto da Nota</button>
-                            <button type="button" id="btn-trigger-gallery" class="btn-outline">📂 Escolher da Galeria / PDF</button>
+                            <button type="button" id="btn-trigger-gallery" class="btn-outline">📂 Escolher Imagem / PDF</button>
                         </div>
-                        <div id="ocr-status" class="ocr-status">Selecione um arquivo. A leitura automática ainda não está conectada.</div>
-                        <div id="ocr-preview-container" class="ocr-preview-box hidden">
-                            <h4>Pré-preenchimento demonstrativo</h4>
-                            <p class="ocr-note-warning">Confira os dados antes de usar. Nenhuma leitura automática real é realizada.</p>
-                            <div class="grid-form">
-                                <div class="campo"><label for="ocr-prev-desc">Descrição</label><input type="text" id="ocr-prev-desc"></div>
-                                <div class="campo"><label for="ocr-prev-val">Valor (R$)</label><input type="number" step="0.01" min="0.01" id="ocr-prev-val"></div>
-                            </div>
-                            <div class="ocr-decision-actions">
-                                <button type="button" id="btn-confirm-ocr" class="btn-primary btn-success-action">Carregar no Formulário</button>
-                                <button type="button" id="btn-cancel-ocr" class="btn-outline btn-danger-text">Descartar</button>
-                            </div>
-                        </div>
+                        <div id="ocr-status" class="ocr-status" role="status">Selecione uma foto, imagem ou PDF. O texto será apresentado para revisão antes de preencher a descrição.</div>
                     </div>
                 </section>
 
                 <section class="card-section">
-                    <div class="section-header-title"><span class="section-icon">📝</span><div><h3 id="form-titulo-modo">Novo Lançamento Financeiro</h3><p class="section-desc">Registre entradas ou saídas. A taxa de cartão é descontada somente em novos recebimentos.</p></div></div>
+                    <div class="section-header-title"><span class="section-icon">📝</span><div><h3 id="form-titulo-modo">Novo Lançamento Financeiro</h3><p class="section-desc">Confira os dados e a prévia financeira antes de salvar.</p></div></div>
                     <form id="form-transacao" class="grid-form" autocomplete="off">
                         <input type="hidden" id="t-edit-id" value="">
                         <div class="campo"><label for="t-tipo">Tipo de Movimento *</label><select id="t-tipo" required><option value="entrada">Entrada / Recebimento (+)</option><option value="saida">Saída / Despesa (-)</option></select></div>
                         <div class="campo"><label for="t-categoria">Categoria / Serviço *</label><select id="t-categoria" required></select></div>
                         <div class="campo" id="campo-profissional"><label for="t-profissional">Profissional Responsável *</label><select id="t-profissional"></select></div>
-                        <div class="campo"><label for="t-descricao">Descrição / Identificação *</label><input type="text" id="t-descricao" maxlength="500" placeholder="Ex.: Consulta / fornecedor / despesa" required></div>
+                        <div class="campo"><label for="t-descricao">Descrição / Identificação *</label><textarea id="t-descricao" rows="3" maxlength="4000" placeholder="Ex.: Consulta, fornecedor, despesa ou trecho conferido do comprovante" required></textarea><small class="field-help">O texto do OCR pode ser editado antes do lançamento.</small></div>
                         <div class="campo"><label for="t-valor" id="label-valor">Valor Bruto (R$) *</label><input type="number" id="t-valor" step="0.01" min="0.01" placeholder="0.00" required></div>
                         <div class="campo"><label for="t-data">Data da Operação *</label><input type="date" id="t-data" required></div>
-                        <div class="campo" id="campo-pagamento"><label for="t-forma-pagamento">Forma de Pagamento *</label><select id="t-forma-pagamento" required><option value="PIX">PIX / Dinheiro / Boleto (Sem taxa)</option><option value="Débito">Cartão de Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito Parcelado (2x a 12x)</option></select></div>
-                        <div class="campo" id="campo-bandeira"><label for="t-bandeira">Bandeira / Taxa de Cartão</label><select id="t-bandeira"><option value="">Sem taxa de cartão / Outros</option></select></div>
+
+                        <div class="campo" id="campo-pagamento"><label for="t-forma-pagamento">Forma de Pagamento *</label><select id="t-forma-pagamento" required><option value="PIX">PIX (sem taxa)</option><option value="Dinheiro">Dinheiro (sem taxa)</option><option value="Boleto">Boleto (sem taxa)</option><option value="Débito">Cartão de Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito Parcelado</option></select></div>
+                        <div class="campo hidden" id="campo-bandeira"><label for="t-bandeira">Bandeira *</label><select id="t-bandeira"><option value="">Selecione a bandeira</option><option value="Mastercard">Mastercard</option><option value="Visa">Visa</option><option value="Elo">Elo</option><option value="Amex">American Express</option></select></div>
+                        <div class="campo hidden" id="campo-parcelas"><label for="t-parcelas">Quantidade de parcelas *</label><select id="t-parcelas"><option value="">Selecione</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option><option value="5">5x</option><option value="6">6x</option><option value="7">7x</option><option value="8">8x</option><option value="9">9x</option><option value="10">10x</option><option value="11">11x</option><option value="12">12x</option></select></div>
+                        <div class="campo hidden" id="campo-modo-taxa"><label for="t-modo-taxa">Como informar a taxa?</label><select id="t-modo-taxa"><option value="pendente">Selecione uma opção</option><option value="tabela">Usar taxa de referência da tabela (aproximada)</option><option value="manual">Informar taxa manualmente</option><option value="sem_taxa">Declarar operação sem taxa</option></select></div>
+                        <div class="campo hidden" id="campo-taxa-manual"><label for="t-taxa-manual">Taxa manual (%) *</label><input type="number" id="t-taxa-manual" min="0" max="100" step="0.0001" placeholder="Ex.: 2,50"><small class="field-help">Informe o percentual total da operação, não o percentual por parcela.</small></div>
+                        <div class="campo hidden" id="campo-confirmacao-taxa"><label class="checkbox-inline"><input type="checkbox" id="t-confirmar-taxa"> Confirmo que verifiquei esta taxa ou a ausência de taxa e sou responsável pela veracidade da informação.</label><div id="aviso-responsabilidade-taxa" class="field-warning">A taxa informada manualmente ou a declaração de ausência de taxa será registrada como responsabilidade de quem realizou o lançamento.</div></div>
+
+                        <div class="financial-preview campo" id="previa-financeira" style="grid-column:1/-1">
+                            <h4>Prévia financeira — não salva automaticamente</h4>
+                            <div class="financial-preview-grid">
+                                <div><span>Valor bruto</span><strong id="previa-bruto">R$ 0,00</strong></div>
+                                <div><span>Taxa aplicada</span><strong id="previa-percentual">—</strong></div>
+                                <div><span>Desconto da operadora</span><strong id="previa-valor-taxa">R$ 0,00</strong></div>
+                                <div><span>Valor líquido</span><strong id="previa-liquido">R$ 0,00</strong></div>
+                                <div><span>Valor operacional</span><strong id="previa-operacional">R$ 0,00</strong></div>
+                            </div>
+                            <div id="taxa-status" class="field-help" aria-live="polite">Preencha o valor e selecione a forma de pagamento para visualizar a composição.</div>
+                        </div>
+
+                        <div class="campo hidden" id="campo-recorrencia">
+                            <label for="t-recorrencia">Repetir este custo fixo?</label>
+                            <select id="t-recorrencia"><option value="nenhuma">Não repetir</option><option value="semanal">Semanalmente</option><option value="mensal">Mensalmente</option><option value="semestral">A cada 6 meses</option><option value="anual">Anualmente</option></select>
+                            <small class="field-help">O lançamento atual será registrado na data informada. As próximas ocorrências serão geradas nos intervalos escolhidos.</small>
+                        </div>
                         <div class="form-submit-row">
                             <button type="submit" id="btn-submit-transacao" class="btn-primary">💾 Salvar Lançamento</button>
                             <button type="button" id="btn-cancelar-edicao" class="btn-outline hidden" onclick="cancelarEdicao()">Cancelar Edição</button>
                         </div>
                     </form>
                 </section>
+
+                <section id="recorrencias-container" class="card-section recurrence-panel hidden">
+                    <div class="section-header-title"><div><h3>Custos fixos recorrentes</h3><p class="section-desc">Regras cadastradas e situação das próximas gerações automáticas.</p></div></div>
+                    <div id="recorrencias-list" role="status">Carregando regras recorrentes...</div>
+                </section>
             </section>
 
             <section id="aba-historico" class="tab-content hidden">
                 <section class="card-section">
                     <div class="table-header-toolbar">
-                        <div><h3>Histórico de Lançamentos</h3><p class="section-desc">Consulte, filtre e exporte relatórios consolidados.</p></div>
-                        <div id="acoes-analista" class="export-actions-group">
-                            <button type="button" id="btn-export-csv" class="btn-outline">📊 Exportar CSV (Excel)</button>
-                            <button type="button" id="btn-export-pdf" class="btn-outline">📄 Exportar PDF</button>
-                        </div>
+                        <div><h3>Histórico de Lançamentos</h3><p class="section-desc">Consulte, filtre e exporte a composição financeira disponível.</p></div>
+                        <div id="acoes-analista" class="export-actions-group"><button type="button" id="btn-export-csv" class="btn-outline">📊 Exportar CSV (Excel)</button><button type="button" id="btn-export-pdf" class="btn-outline">📄 Exportar PDF</button></div>
                     </div>
                     <div class="table-filters-bar">
                         <div class="campo-inline"><label for="filtro-busca">Pesquisar:</label><input type="text" id="filtro-busca" placeholder="Filtrar por categoria ou descrição..."></div>
                         <div class="campo-inline"><label for="filtro-tipo">Tipo:</label><select id="filtro-tipo"><option value="todos">Todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option></select></div>
                     </div>
-                    <div class="table-responsive"><table id="tabela-historico"><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição / Detalhes</th><th>Valor Líquido</th><th id="th-acoes" class="hidden">Ações</th></tr></thead><tbody id="transacoes-list"></tbody></table></div>
+                    <div class="table-responsive"><table id="tabela-historico"><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição / Detalhes</th><th>Pagamento</th><th>Valor bruto</th><th>Taxa %</th><th>Taxa R$</th><th>Valor líquido</th><th>Valor operacional</th><th id="th-acoes" class="hidden">Ações</th></tr></thead><tbody id="transacoes-list"></tbody></table></div>
                 </section>
             </section>
 
-            <section id="aba-usuarios" class="tab-content hidden">
-                <section class="card-section">
-                    <div class="section-header-title"><span class="section-icon">👥</span><div><h3>Gerenciamento de Usuários</h3><p class="section-desc">A criação, alteração de perfil e redefinição administrativa de senhas exigem uma Edge Function segura com Supabase Admin API. Não são executadas no navegador.</p></div></div>
-                    <div id="usuarios-sistema-list" role="status">Gestão administrativa indisponível até a integração do endpoint seguro no servidor. A chave service_role nunca deve ser colocada neste HTML ou JavaScript.</div>
-                </section>
-            </section>
-
-            <section id="aba-logs" class="tab-content hidden">
-                <section class="card-section">
-                    <div class="section-header-title"><span class="section-icon">🛡️</span><div><h3>Trilha de Auditoria</h3><p class="section-desc">Os logs persistentes precisam estar em uma tabela de auditoria protegida por RLS ou ser gravados por triggers/Edge Functions.</p></div></div>
-                    <div id="logs-audit-list" role="status">A consulta de auditoria será habilitada quando a tabela e seu esquema forem integrados. Este sistema não grava logs falsos no navegador.</div>
-                </section>
-            </section>
-
+            <section id="aba-usuarios" class="tab-content hidden"><section class="card-section"><div class="section-header-title"><span class="section-icon">👥</span><div><h3>Gerenciamento de Usuários</h3><p class="section-desc">A criação, alteração de perfil e redefinição administrativa de senhas exigem uma Edge Function segura com Supabase Admin API. Não são executadas no navegador.</p></div></div><div id="usuarios-sistema-list" role="status">Gestão administrativa indisponível até a integração do endpoint seguro no servidor. A chave service_role nunca deve ser colocada neste HTML ou JavaScript.</div></section></section>
+            <section id="aba-logs" class="tab-content hidden"><section class="card-section"><div class="section-header-title"><span class="section-icon">🛡️</span><div><h3>Trilha de Auditoria</h3><p class="section-desc">Os logs persistentes dependem da tabela de auditoria, RLS, triggers ou Edge Functions já existentes.</p></div></div><div id="logs-audit-list" role="status">A consulta de auditoria permanece conforme a integração atualmente disponível no banco.</div></section></section>
             <footer class="main-footer"><p>© 2026 Áudio S.A. — Sistema Financeiro Clínico Oficial | Desenvolvido por <b>ayrandev</b></p></footer>
         </main>
     </div>
@@ -208,13 +250,35 @@
         </div>
     </div>
 
+    <div id="modal-ocr" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ocr-titulo">
+        <div class="modal-card ocr-modal-wide">
+            <div class="modal-card-header"><h3 id="modal-ocr-titulo">Revisar texto reconhecido</h3><button type="button" class="btn-close-modal" id="btn-fechar-modal-ocr" aria-label="Fechar">✕</button></div>
+            <p class="section-desc">Confira e corrija o texto antes de confirmar. O botão de confirmação copia o conteúdo revisado para a descrição do lançamento; nenhum lançamento é salvo nesta etapa.</p>
+            <div id="ocr-modal-feedback" class="field-warning">O OCR pode confundir números, datas e caracteres. Confira especialmente os valores antes de utilizar o texto.</div>
+            <textarea id="ocr-text-result" maxlength="4000" spellcheck="false" aria-label="Texto reconhecido pelo OCR"></textarea>
+            <div class="ocr-modal-actions">
+                <button type="button" id="btn-copiar-ocr" class="btn-outline">Copiar texto completo</button>
+                <button type="button" id="btn-usar-ocr" class="btn-primary">Confirmar e preencher descrição</button>
+                <button type="button" id="btn-cancelar-ocr-modal" class="btn-outline">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-recorrencias" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-recorrencias-titulo">
+        <div class="modal-card">
+            <div class="modal-card-header"><h3 id="modal-recorrencias-titulo">Custos fixos lançados automaticamente</h3><button type="button" class="btn-close-modal" id="btn-fechar-modal-recorrencias" aria-label="Fechar">✕</button></div>
+            <p id="recorrencias-alerta-texto">O sistema gerou lançamentos recorrentes nesta abertura.</p>
+            <div id="recorrencias-geradas-list"></div>
+            <div class="modal-actions-row"><button type="button" class="btn-primary" id="btn-ok-modal-recorrencias">Entendi</button></div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="func.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .catch(err => console.warn('Service Worker não registrado:', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service Worker não registrado:', err));
             });
         }
     </script>
