@@ -163,10 +163,31 @@
                             <div class="campo"><label for="filtro-dashboard-fim">Data final</label><input type="date" id="filtro-dashboard-fim"></div>
                             <div class="campo"><label for="filtro-dashboard-categoria">Categoria</label><select id="filtro-dashboard-categoria"><option value="todas">Todas</option></select></div>
                             <div class="campo"><label for="filtro-dashboard-profissional">Profissional</label><select id="filtro-dashboard-profissional"><option value="todos">Todos</option></select></div>
-                            <div class="campo"><label for="filtro-dashboard-pagamento">Pagamento</label><select id="filtro-dashboard-pagamento"><option value="todos">Todas as formas</option><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito parcelado</option></select></div>
+                            <div class="campo"><label for="filtro-dashboard-pagamento">Pagamento</label><select id="filtro-dashboard-pagamento"><option value="todos">Todas as formas</option><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito parcelado</option><option value="Transferência">Transferência</option></select></div>
                             <div class="campo"><label for="filtro-dashboard-bandeira">Bandeira</label><select id="filtro-dashboard-bandeira"><option value="todas">Todas</option><option>Mastercard</option><option>Visa</option><option>Elo</option><option>Amex</option></select></div>
                         </div>
                     </div>
+                </section>
+
+                <section id="painel-compromissos-despesas" class="card-section future-payments-panel" aria-labelledby="titulo-compromissos-despesas">
+                    <div class="section-header-title future-payments-heading">
+                        <div><h3 id="titulo-compromissos-despesas">Compromissos financeiros futuros</h3><p class="section-desc">Parcelas contratadas ainda não pagas. A agenda mostra cada vencimento pelos próximos 12 meses; somente pagamentos confirmados entram nas saídas realizadas.</p></div>
+                        <button type="button" id="btn-atualizar-compromissos" class="btn-outline">Atualizar agenda</button>
+                    </div>
+                    <div class="commitment-summary-grid">
+                        <div class="commitment-summary-item overdue"><span>Vencidas</span><strong id="compromissos-vencidos">0</strong><small id="compromissos-vencidos-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item"><span>Próximos 30 dias</span><strong id="compromissos-30">0</strong><small id="compromissos-30-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item"><span>Próximos 60 dias</span><strong id="compromissos-60">0</strong><small id="compromissos-60-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item"><span>Próximos 90 dias</span><strong id="compromissos-90">0</strong><small id="compromissos-90-valor">R$ 0,00</small></div>
+                        <div class="commitment-summary-item annual"><span>Próximos 12 meses</span><strong id="compromissos-12-meses">0</strong><small id="compromissos-12-meses-valor">R$ 0,00</small></div>
+                    </div>
+                    <div class="table-responsive commitment-table-wrap">
+                        <table class="commitment-table">
+                            <thead><tr><th>Vencimento</th><th>Despesa</th><th>Parcela</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
+                            <tbody id="compromissos-despesas-list"><tr><td colspan="6" class="empty-cell">A agenda será carregada para Gerência e Analista.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <p id="compromissos-despesas-status" class="field-help" role="status" aria-live="polite">A previsão não altera o saldo operacional.</p>
                 </section>
 
                 <section class="kpi-grid">
@@ -215,7 +236,16 @@
                         <div class="campo"><label for="t-valor" id="label-valor">Valor Bruto (R$) *</label><input type="number" id="t-valor" step="0.01" min="0.01" placeholder="0.00" required></div>
                         <div class="campo"><label for="t-data">Data da Operação *</label><input type="date" id="t-data" required></div>
 
-                        <div class="campo" id="campo-pagamento"><label for="t-forma-pagamento">Forma de Pagamento *</label><select id="t-forma-pagamento" required><option value="PIX">PIX (sem taxa)</option><option value="Dinheiro">Dinheiro (sem taxa)</option><option value="Boleto">Boleto (sem taxa)</option><option value="Débito">Cartão de Débito</option><option value="Crédito à vista">Crédito à vista</option><option value="Crédito Parcelado">Crédito Parcelado</option></select></div>
+                        <div class="campo" id="campo-pagamento"><label for="t-forma-pagamento">Forma de Pagamento *</label><select id="t-forma-pagamento" required><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Cartão de débito</option><option value="Crédito à vista">Cartão de crédito à vista</option><option value="Crédito Parcelado">Cartão de crédito parcelado</option><option value="Transferência">Transferência bancária</option></select></div>
+                        <div class="campo hidden" id="campo-saida-condicao"><label for="t-saida-condicao">Condição da despesa *</label><select id="t-saida-condicao"><option value="avista">À vista</option><option value="parcelado">Parcelada</option></select><small class="field-help">Use “Parcelada” para compras que gerarão compromissos mensais futuros.</small></div>
+                        <div class="campo hidden" id="campo-saida-quantidade"><label for="t-saida-quantidade-parcelas">Quantidade de parcelas *</label><input type="number" id="t-saida-quantidade-parcelas" min="2" max="48" step="1" value="12" inputmode="numeric"><small class="field-help">De 2 a 48 parcelas.</small></div>
+                        <div class="campo hidden" id="campo-saida-juros"><label for="t-saida-juros">Juros totais da compra (%)</label><input type="number" id="t-saida-juros" min="0" max="100" step="0.01" value="0" inputmode="decimal"><small class="field-help">Percentual aplicado uma única vez sobre o valor da compra. Use 0% quando não houver juros.</small></div>
+                        <div class="campo hidden" id="campo-saida-primeiro-vencimento"><label for="t-saida-primeiro-vencimento">Vencimento da primeira parcela *</label><input type="date" id="t-saida-primeiro-vencimento"><small class="field-help">As próximas datas serão calculadas mês a mês, respeitando o calendário.</small></div>
+                        <div class="campo hidden expense-installment-preview" id="campo-saida-previa" style="grid-column:1/-1">
+                            <h4>Prévia das parcelas — compra ainda não salva</h4>
+                            <div class="table-responsive"><table class="commitment-table"><thead><tr><th>Parcela</th><th>Vencimento (editável)</th><th>Valor (editável)</th></tr></thead><tbody id="parcelas-saida-preview-body"><tr><td colspan="3">Informe o valor e as condições do parcelamento.</td></tr></tbody></table></div>
+                            <div class="installment-preview-footer"><strong>Total programado: <span id="parcelas-saida-total-previa">R$ 0,00</span></strong><small id="parcelas-saida-validacao" class="field-help" aria-live="polite">A soma das parcelas deverá corresponder ao valor total com juros.</small></div>
+                        </div>
                         <div class="campo hidden" id="campo-bandeira"><label for="t-bandeira">Bandeira *</label><select id="t-bandeira"><option value="">Selecione a bandeira</option><option value="Mastercard">Mastercard</option><option value="Visa">Visa</option><option value="Elo">Elo</option><option value="Amex">American Express</option></select></div>
                         <div class="campo hidden" id="campo-parcelas"><label for="t-parcelas">Quantidade de parcelas *</label><select id="t-parcelas"><option value="">Selecione</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option><option value="5">5x</option><option value="6">6x</option><option value="7">7x</option><option value="8">8x</option><option value="9">9x</option><option value="10">10x</option><option value="11">11x</option><option value="12">12x</option></select></div>
                         <div class="campo hidden" id="campo-modo-taxa"><label for="t-modo-taxa">Como informar a taxa?</label><select id="t-modo-taxa"><option value="pendente">Selecione uma opção</option><option value="tabela">Usar taxa de referência da tabela (aproximada)</option><option value="manual">Informar taxa manualmente</option><option value="sem_taxa">Declarar operação sem taxa</option></select></div>
@@ -272,6 +302,20 @@
         </main>
     </div>
 
+    <div id="modal-pagamento-parcela" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-pagamento-parcela-titulo">
+        <div class="modal-card payment-modal-card">
+            <div class="modal-card-header"><h3 id="modal-pagamento-parcela-titulo">Registrar pagamento da parcela</h3><button type="button" class="btn-close-modal" id="btn-fechar-pagamento-parcela" aria-label="Fechar">✕</button></div>
+            <p id="pagamento-parcela-resumo" class="section-desc">Confirme a parcela que foi efetivamente paga.</p>
+            <form id="form-pagamento-parcela" autocomplete="off">
+                <div class="campo"><label for="pagamento-parcela-data">Data efetiva do pagamento *</label><input type="date" id="pagamento-parcela-data" required></div>
+                <div class="campo"><label for="pagamento-parcela-forma">Forma efetiva de pagamento *</label><select id="pagamento-parcela-forma" required><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Boleto">Boleto</option><option value="Débito">Cartão de débito</option><option value="Crédito à vista">Cartão de crédito à vista</option><option value="Transferência">Transferência bancária</option></select></div>
+                <div class="campo"><label for="pagamento-parcela-observacao">Observações</label><textarea id="pagamento-parcela-observacao" rows="2" maxlength="1000" placeholder="Opcional"></textarea></div>
+                <div id="pagamento-parcela-feedback" class="field-help" role="status" aria-live="polite"></div>
+                <div class="modal-actions-row"><button type="submit" id="btn-confirmar-pagamento-parcela" class="btn-primary">Confirmar pagamento</button><button type="button" id="btn-cancelar-pagamento-parcela" class="btn-outline">Cancelar</button></div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-senha" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-senha-titulo">
         <div class="modal-card">
             <div class="modal-card-header"><h3 id="modal-senha-titulo">🔑 Alterar Senha de Acesso</h3><button type="button" class="btn-close-modal" onclick="fecharModalSenha()" aria-label="Fechar">✕</button></div>
@@ -319,4 +363,5 @@
     </script>
 </body>
 </html>
+
 

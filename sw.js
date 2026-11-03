@@ -1,4 +1,4 @@
-/* Service Worker Áudio S.A. — cache versionado e sem interceptar APIs externas. */
+/* Service Worker Áudio S.A. — cache versionado, tolerante a assets opcionais ausentes. */
 const CACHE_NAME = 'audio-sa-v2';
 const APP_ASSETS = [
     './',
@@ -10,11 +10,20 @@ const APP_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(APP_ASSETS))
-            .then(() => self.skipWaiting())
-    );
+    event.waitUntil((async () => {
+        const cache = await caches.open(CACHE_NAME);
+        // Um arquivo opcional ausente (por exemplo, logo.png) não deve impedir
+        // a instalação de todo o Service Worker.
+        await Promise.all(APP_ASSETS.map(async (asset) => {
+            try {
+                const response = await fetch(asset, { cache: 'reload' });
+                if (response && response.ok) await cache.put(asset, response);
+            } catch (error) {
+                console.warn(`Não foi possível pré-carregar ${asset}:`, error);
+            }
+        }));
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener('activate', (event) => {

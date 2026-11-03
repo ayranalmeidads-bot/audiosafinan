@@ -70,6 +70,9 @@
     let sessaoAtual = null;
     let transacoes = [];
     let recorrencias = [];
+    let compromissosDespesas = [];
+    let parcelasSaidaPreview = [];
+    let parcelaSelecionadaParaPagamento = null;
     let barChartInstance = null;
     let pieChartInstance = null;
     let lineChartInstance = null;
@@ -156,11 +159,21 @@
             throw new Error('A biblioteca do Supabase não foi carregada. Verifique a conexão e o script CDN.');
         }
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+            auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storageKey: 'sb-zqkdnkpttbazajqkeqac-auth-token' }
         });
     }
 
-    // Assina mudanças somente depois que o perfil financeiro foi autorizado.
+    function agendarAtualizacaoDashboardRealtime() {
+        if (temporizadorRealtime) clearTimeout(temporizadorRealtime);
+        temporizadorRealtime = setTimeout(async () => {
+            temporizadorRealtime = null;
+            if (!exigirPerfil(['gerente', 'analista']) || carregando) return;
+            await carregarTransacoes();
+            await carregarCompromissosDespesas();
+        }, 350);
+    }
+
+    // Assina transações e parcelas somente depois da autorização financeira.
     // A RLS continua sendo a barreira real; a assinatura apenas atualiza a interface.
     function configurarRealtimeTransacoes() {
         if (!exigirPerfil(['gerente', 'analista']) || !supabaseClient || canalTransacoes) return;
@@ -171,15 +184,17 @@
                 event: '*',
                 schema: 'public',
                 table: 'transacoes'
-            }, () => {
-                if (temporizadorRealtime) clearTimeout(temporizadorRealtime);
-                temporizadorRealtime = setTimeout(() => {
-                    temporizadorRealtime = null;
-                    if (exigirPerfil(['gerente', 'analista']) && !carregando) {
-                        carregarTransacoes();
-                    }
-                }, 350);
-            })
+            }, agendarAtualizacaoDashboardRealtime)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'parcelas_despesas'
+            }, agendarAtualizacaoDashboardRealtime)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'despesas_contratadas'
+            }, agendarAtualizacaoDashboardRealtime)
             .subscribe((status) => {
                 if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                     console.error('Falha na assinatura Realtime de transacoes:', status);
@@ -233,12 +248,23 @@
         if ((CATEGORIAS[tipo] || []).includes(valorAnterior)) categoria.value = valorAnterior;
 
         const entrada = tipo === 'entrada';
+        const labelValor = $('label-valor');
+        const labelData = $('t-data')?.previousElementSibling;
+        if (labelValor) labelValor.textContent = entrada ? 'Valor Bruto (R$) *' : 'Valor total da compra / despesa (R$) *';
+        if (labelData) labelData.textContent = entrada ? 'Data da Operação *' : 'Data da compra / despesa *';
         definirVisibilidade($('campo-profissional'), entrada, 'block');
-        definirVisibilidade($('campo-pagamento'), entrada, 'block');
+        // Forma de pagamento é obrigatória tanto para entradas quanto para saídas.
+        definirVisibilidade($('campo-pagamento'), true, 'block');
         const profissional = $('t-profissional');
         if (profissional) profissional.required = entrada;
         const pagamento = $('t-forma-pagamento');
-        if (pagamento) pagamento.required = entrada;
+        if (pagamento) pagamento.required = true;
+        if (!entrada && $('t-saida-condicao') && !$('t-edit-id')?.value) {
+            $('t-saida-condicao').value = pagamento?.value === 'Crédito Parcelado' ? 'parcelado' : 'avista';
+            if ($('t-saida-primeiro-vencimento') && !$('t-saida-primeiro-vencimento').value) {
+                $('t-saida-primeiro-vencimento').value = $('t-data')?.value || dataLocalHoje();
+            }
+        }
         atualizarCamposPagamento({ ajustarModo: true });
         atualizarCampoRecorrencia();
     }
@@ -268,9 +294,49 @@
     function atualizarCamposPagamento({ ajustarModo = false } = {}) {
         const entrada = $('t-tipo')?.value === 'entrada';
         const forma = $('t-forma-pagamento')?.value || 'PIX';
-        const cartao = entrada && ['Débito', 'Crédito à vista', 'Crédito Parcelado'].includes(forma);
+
+        if (!entrada) {
+            // Saída usa modalidade própria; nunca reutiliza parcelas/taxas de recebíveis.
+            definirVisibilidade($('campo-bandeira'), false);
+            definirVisibilidade($('campo-parcelas'), false);
+            definirVisibilidade($('campo-modo-taxa'), false);
+            definirVisibilidade($('campo-taxa-manual'), false);
+            definirVisibilidade($('campo-confirmacao-taxa'), false);
+            if ($('t-bandeira')) { $('t-bandeira').value = ''; $('t-bandeira').required = false; }
+            if ($('t-parcelas')) { $('t-parcelas').value = ''; $('t-parcelas').required = false; }
+            if ($('t-modo-taxa')) { $('t-modo-taxa').value = 'sem_taxa'; $('t-modo-taxa').required = false; }
+            if ($('t-taxa-manual')) $('t-taxa-manual').required = false;
+            if ($('t-confirmar-taxa')) $('t-confirmar-taxa').required = false;
+
+            definirVisibilidade($('campo-saida-condicao'), true, 'block');
+            const parcelada = $('t-saida-condicao')?.value === 'parcelado';
+            ['campo-saida-quantidade', 'campo-saida-juros', 'campo-saida-primeiro-vencimento', 'campo-saida-previa']
+                .forEach(id => definirVisibilidade($(id), parcelada, 'block'));
+            if ($('t-saida-quantidade-parcelas')) $('t-saida-quantidade-parcelas').required = parcelada;
+            if ($('t-saida-primeiro-vencimento')) $('t-saida-primeiro-vencimento').required = parcelada;
+            if (parcelada) {
+                const quantidadeAtual = Number($('t-saida-quantidade-parcelas')?.value || 0);
+                if (!parcelasSaidaPreview.length || parcelasSaidaPreview.length !== quantidadeAtual) {
+                    gerarPreviaParcelasSaida();
+                }
+            } else {
+                parcelasSaidaPreview = [];
+                const tbody = $('parcelas-saida-preview-body');
+                if (tbody) tbody.replaceChildren();
+            }
+            atualizarPreviaFinanceira();
+            return;
+        }
+
+        definirVisibilidade($('campo-saida-condicao'), false);
+        ['campo-saida-quantidade', 'campo-saida-juros', 'campo-saida-primeiro-vencimento', 'campo-saida-previa']
+            .forEach(id => definirVisibilidade($(id), false));
+        if ($('t-saida-quantidade-parcelas')) $('t-saida-quantidade-parcelas').required = false;
+        if ($('t-saida-primeiro-vencimento')) $('t-saida-primeiro-vencimento').required = false;
+
+        const cartao = ['Débito', 'Crédito à vista', 'Crédito Parcelado'].includes(forma);
         const parcelado = cartao && forma === 'Crédito Parcelado';
-        const assinaturaAtual = `${entrada ? 'entrada' : 'saida'}|${forma}|${$('t-bandeira')?.value || ''}|${$('t-parcelas')?.value || ''}`;
+        const assinaturaAtual = `entrada|${forma}|${$('t-bandeira')?.value || ''}|${$('t-parcelas')?.value || ''}`;
         definirVisibilidade($('campo-bandeira'), cartao, 'block');
         definirVisibilidade($('campo-parcelas'), parcelado, 'block');
         definirVisibilidade($('campo-modo-taxa'), cartao, 'block');
@@ -293,7 +359,6 @@
         if (ajustarModo && !suprimindoMudancaFinanceira && !estadoEdicao) {
             const mudouContexto = assinaturaAtual !== assinaturaPagamentoAnterior;
             if (mudouContexto) {
-                // Evita reaproveitar uma taxa manual/declaração de não cobrança de outra bandeira ou parcela.
                 if ($('t-confirmar-taxa')) $('t-confirmar-taxa').checked = false;
                 if ($('t-taxa-manual')) $('t-taxa-manual').value = '';
                 modo.value = contexto.taxaTabela !== null ? 'tabela' : 'pendente';
@@ -318,15 +383,130 @@
         const aviso = $('aviso-responsabilidade-taxa');
         if (aviso) aviso.textContent = manual
             ? 'A taxa informada manualmente será registrada como declaração do usuário responsável pelo lançamento. Confira a taxa total junto à operadora.'
-            : 'Você está declarando que esta operação não teve desconto da operadora. Essa declaração ficará registrada no lançamento.';
+            : 'Você está declarando que esta operação não teve taxa da operadora. Essa declaração ficará registrada no lançamento.';
         atualizarPreviaFinanceira();
+    }
+
+    function dataISOComMeses(dataISO, meses) {
+        const [ano, mes, dia] = String(dataISO).split('-').map(Number);
+        if (!ano || !mes || !dia) return '';
+        const alvoMesIndice = (mes - 1) + meses;
+        const anoAlvo = ano + Math.floor(alvoMesIndice / 12);
+        const mesAlvo = (alvoMesIndice % 12) + 1;
+        const ultimoDia = new Date(Date.UTC(anoAlvo, mesAlvo, 0)).getUTCDate();
+        const diaAlvo = Math.min(dia, ultimoDia);
+        return `${anoAlvo}-${String(mesAlvo).padStart(2, '0')}-${String(diaAlvo).padStart(2, '0')}`;
+    }
+
+    function valorTotalCompraParcelada() {
+        const base = Number($('t-valor')?.value || 0);
+        const juros = Number($('t-saida-juros')?.value || 0);
+        if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(juros) || juros < 0 || juros > 100) return 0;
+        return arredondarCentavos(base + (base * juros / 100));
+    }
+
+    function gerarPreviaParcelasSaida() {
+        const condicaoParcelada = $('t-tipo')?.value === 'saida' && $('t-saida-condicao')?.value === 'parcelado';
+        if (!condicaoParcelada) return;
+        const quantidade = Number($('t-saida-quantidade-parcelas')?.value || 0);
+        const primeiroVencimento = $('t-saida-primeiro-vencimento')?.value || '';
+        const total = valorTotalCompraParcelada();
+        const tbody = $('parcelas-saida-preview-body');
+        if (!tbody) return;
+        if (!Number.isInteger(quantidade) || quantidade < 2 || quantidade > 48 || !primeiroVencimento || total <= 0) {
+            parcelasSaidaPreview = [];
+            tbody.replaceChildren();
+            const tr = document.createElement('tr'); const td = document.createElement('td');
+            td.colSpan = 3; td.textContent = 'Informe valor, quantidade (2 a 48) e primeiro vencimento para gerar a prévia.'; tr.appendChild(td); tbody.appendChild(tr);
+            if ($('parcelas-saida-total-previa')) $('parcelas-saida-total-previa').textContent = money(total);
+            if ($('parcelas-saida-validacao')) $('parcelas-saida-validacao').textContent = 'Complete os campos obrigatórios.';
+            return;
+        }
+        const baseParcela = arredondarCentavos(total / quantidade);
+        parcelasSaidaPreview = Array.from({ length: quantidade }, (_, index) => ({
+            numero_parcela: index + 1,
+            vencimento: dataISOComMeses(primeiroVencimento, index),
+            valor: index === quantidade - 1 ? arredondarCentavos(total - baseParcela * (quantidade - 1)) : baseParcela
+        }));
+        renderizarPreviaParcelasSaida();
+    }
+
+    function renderizarPreviaParcelasSaida() {
+        const tbody = $('parcelas-saida-preview-body');
+        if (!tbody) return;
+        tbody.replaceChildren();
+        parcelasSaidaPreview.forEach((parcela, index) => {
+            const tr = document.createElement('tr');
+            const numero = document.createElement('td'); numero.textContent = `${parcela.numero_parcela}/${parcelasSaidaPreview.length}`;
+            const dataTd = document.createElement('td');
+            const dataInput = document.createElement('input'); dataInput.type = 'date'; dataInput.value = parcela.vencimento; dataInput.dataset.index = String(index); dataInput.dataset.field = 'vencimento'; dataInput.required = true; dataInput.setAttribute('aria-label', `Vencimento da parcela ${parcela.numero_parcela}`); dataTd.appendChild(dataInput);
+            const valorTd = document.createElement('td');
+            const valorInput = document.createElement('input'); valorInput.type = 'number'; valorInput.min = '0.01'; valorInput.step = '0.01'; valorInput.value = parcela.valor.toFixed(2); valorInput.dataset.index = String(index); valorInput.dataset.field = 'valor'; valorInput.required = true; valorInput.setAttribute('aria-label', `Valor da parcela ${parcela.numero_parcela}`); valorTd.appendChild(valorInput);
+            tr.append(numero, dataTd, valorTd); tbody.appendChild(tr);
+        });
+        atualizarTotalPreviaParcelas();
+    }
+
+    function atualizarTotalPreviaParcelas() {
+        const totalProgramado = arredondarCentavos(parcelasSaidaPreview.reduce((soma, item) => soma + Number(item.valor || 0), 0));
+        const totalEsperado = valorTotalCompraParcelada();
+        const datasEmOrdem = parcelasSaidaPreview.every((p, index) => index === 0 || p.vencimento > parcelasSaidaPreview[index - 1].vencimento);
+        const valido = parcelasSaidaPreview.length >= 2 && parcelasSaidaPreview.every(p => Number(p.valor) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(p.vencimento)) && datasEmOrdem && totalProgramado === totalEsperado;
+        if ($('parcelas-saida-total-previa')) $('parcelas-saida-total-previa').textContent = money(totalProgramado);
+        if ($('parcelas-saida-validacao')) {
+            $('parcelas-saida-validacao').textContent = valido
+                ? `Conferido: as ${parcelasSaidaPreview.length} parcelas totalizam ${money(totalEsperado)}.`
+                : `A soma precisa corresponder a ${money(totalEsperado)} e os vencimentos devem estar em ordem crescente. Ao editar um valor, outra parcela é ajustada automaticamente para preservar o total.`;
+            $('parcelas-saida-validacao').classList.toggle('field-error', !valido);
+            $('parcelas-saida-validacao').classList.toggle('field-help', valido);
+        }
+        return valido;
+    }
+
+    function alterarPreviaParcela(evento) {
+        const campo = evento.target;
+        if (!campo?.dataset?.field) return;
+        const index = Number(campo.dataset.index);
+        if (!Number.isInteger(index) || !parcelasSaidaPreview[index]) return;
+        if (campo.dataset.field === 'vencimento') {
+            parcelasSaidaPreview[index].vencimento = campo.value;
+        } else if (campo.dataset.field === 'valor') {
+            const valorAnterior = parcelasSaidaPreview[index].valor;
+            const novoValor = arredondarCentavos(Number(campo.value));
+            if (!Number.isFinite(novoValor) || novoValor <= 0) {
+                campo.value = valorAnterior.toFixed(2);
+                return;
+            }
+
+            parcelasSaidaPreview[index].valor = novoValor;
+            // Mantém qualquer parcela editável: ao editar a última, ajusta a primeira;
+            // nas demais, ajusta a última para preservar exatamente o valor contratado.
+            const indiceCompensacao = index === parcelasSaidaPreview.length - 1 ? 0 : parcelasSaidaPreview.length - 1;
+            const somaSemCompensacao = arredondarCentavos(
+                parcelasSaidaPreview.reduce((soma, item, i) => soma + (i === indiceCompensacao ? 0 : item.valor), 0)
+            );
+            const valorCompensacao = arredondarCentavos(valorTotalCompraParcelada() - somaSemCompensacao);
+            if (valorCompensacao <= 0) {
+                parcelasSaidaPreview[index].valor = valorAnterior;
+                campo.value = valorAnterior.toFixed(2);
+                feedbackGlobal('Esse valor não pode ser aplicado porque deixaria a parcela de ajuste zerada ou negativa.', 'warning');
+                atualizarTotalPreviaParcelas();
+                return;
+            }
+            parcelasSaidaPreview[indiceCompensacao].valor = valorCompensacao;
+            const inputCompensacao = $('parcelas-saida-preview-body')?.querySelector(`input[data-index="${indiceCompensacao}"][data-field="valor"]`);
+            if (inputCompensacao) inputCompensacao.value = valorCompensacao.toFixed(2);
+        }
+        atualizarTotalPreviaParcelas();
     }
 
     function atualizarCampoRecorrencia() {
         const podeCriar = exigirPerfil(['gerente', 'analista']);
         const custoFixo = $('t-tipo')?.value === 'saida' && $('t-categoria')?.value === 'Custo fixo';
-        definirVisibilidade($('campo-recorrencia'), podeCriar && custoFixo && !estadoEdicao, 'block');
-        if ((!custoFixo || !podeCriar || estadoEdicao) && $('t-recorrencia')) $('t-recorrencia').value = 'nenhuma';
+        const despesaParcelada = $('t-saida-condicao')?.value === 'parcelado';
+        const mostrarRecorrencia = podeCriar && custoFixo && !despesaParcelada && !estadoEdicao;
+        definirVisibilidade($('campo-recorrencia'), mostrarRecorrencia, 'block');
+        if (!mostrarRecorrencia && $('t-recorrencia')) $('t-recorrencia').value = 'nenhuma';
     }
 
     function calcularComposicaoFinanceira(valorBruto, { permitirPendente = false } = {}) {
@@ -334,7 +514,7 @@
         if (!Number.isFinite(bruto) || bruto <= 0) return { valido: false, mensagem: 'Informe um valor bruto maior que zero.' };
 
         if ($('t-tipo')?.value === 'saida') {
-            return { valido: true, valor_bruto: arredondarCentavos(bruto), taxa_percentual: 0, valor_taxa: 0, valor_liquido: arredondarCentavos(bruto), valor_operacional: arredondarCentavos(bruto), taxa_modo: 'sem_taxa_declarada', taxa_provisoria: false, taxa_confirmada_usuario: false, forma_pagamento: null, bandeira: null, parcelas: null };
+            return { valido: true, valor_bruto: arredondarCentavos(bruto), taxa_percentual: 0, valor_taxa: 0, valor_liquido: arredondarCentavos(bruto), valor_operacional: arredondarCentavos(bruto), taxa_modo: 'sem_taxa_declarada', taxa_provisoria: false, taxa_confirmada_usuario: false, forma_pagamento: $('t-forma-pagamento')?.value || 'PIX', bandeira: null, parcelas: null };
         }
 
         const contexto = obterContextoTaxa();
@@ -517,6 +697,7 @@
         }
         await carregarTransacoes();
         await carregarRecorrencias();
+        await carregarCompromissosDespesas();
         configurarRealtimeTransacoes();
     }
 
@@ -602,7 +783,7 @@
         try {
             const { data, error } = await supabaseClient
                 .from('transacoes')
-                .select('id,tipo,categoria,profissional,descricao,valor,data,created_at,valor_bruto,forma_pagamento,bandeira,parcelas,taxa_percentual,taxa_modo,valor_taxa,valor_liquido,taxa_confirmada_usuario,taxa_provisoria,recorrencia_id,recorrencia_data')
+                .select('id,tipo,categoria,profissional,descricao,valor,data,created_at,valor_bruto,forma_pagamento,bandeira,parcelas,taxa_percentual,taxa_modo,valor_taxa,valor_liquido,taxa_confirmada_usuario,taxa_provisoria,recorrencia_id,recorrencia_data,despesa_parcela_id')
                 .order('data', { ascending: false })
                 .order('created_at', { ascending: false });
             if (error) throw error;
@@ -658,6 +839,133 @@
             });
             if ([filtro.first[0], ...filtro.values].includes(atual)) select.value = atual;
         });
+    }
+
+    function abrirModalPagamentoParcela(parcela) {
+        if (!exigirPerfil(['gerente', 'analista'])) return;
+        parcelaSelecionadaParaPagamento = parcela;
+        const contrato = parcela.despesa || {};
+        if ($('pagamento-parcela-resumo')) {
+            $('pagamento-parcela-resumo').textContent = `${contrato.descricao || 'Despesa'} — parcela ${parcela.numero_parcela}/${contrato.quantidade_parcelas || '?'} — ${money(parcela.valor)} — vencimento ${formatarData(parcela.vencimento)}.`;
+        }
+        if ($('pagamento-parcela-data')) $('pagamento-parcela-data').value = dataLocalHoje();
+        if ($('pagamento-parcela-forma')) $('pagamento-parcela-forma').value = 'PIX';
+        if ($('pagamento-parcela-observacao')) $('pagamento-parcela-observacao').value = '';
+        if ($('pagamento-parcela-feedback')) $('pagamento-parcela-feedback').textContent = 'O pagamento só será contabilizado nas saídas realizadas após a confirmação.';
+        $('modal-pagamento-parcela')?.classList.remove('hidden');
+    }
+
+    function fecharModalPagamentoParcela() {
+        $('modal-pagamento-parcela')?.classList.add('hidden');
+        parcelaSelecionadaParaPagamento = null;
+    }
+
+    function renderizarCompromissosDespesas() {
+        const tbody = $('compromissos-despesas-list');
+        if (!tbody) return;
+        tbody.replaceChildren();
+        const hoje = dataLocalHoje();
+        const pendentes = compromissosDespesas.filter(item => item.status === 'pendente');
+        const vencidos = pendentes.filter(item => item.vencimento < hoje);
+        const proximos12Meses = pendentes.filter(item => item.vencimento >= hoje && item.vencimento <= dataISOComMeses(hoje, 12));
+        const resumoPeriodo = dias => {
+            const limite = new Date(`${hoje}T00:00:00Z`).getTime() + dias * 86400000;
+            const selecionados = pendentes.filter(item => item.vencimento >= hoje && new Date(`${item.vencimento}T00:00:00Z`).getTime() <= limite);
+            return { quantidade: selecionados.length, total: arredondarCentavos(selecionados.reduce((soma, item) => soma + Number(item.valor || 0), 0)) };
+        };
+        const resumoVencidos = { quantidade: vencidos.length, total: arredondarCentavos(vencidos.reduce((soma, item) => soma + Number(item.valor || 0), 0)) };
+        const resumo30 = resumoPeriodo(30), resumo60 = resumoPeriodo(60), resumo90 = resumoPeriodo(90);
+        const limite12Meses = dataISOComMeses(hoje, 12);
+        const selecionados12Meses = pendentes.filter(item => item.vencimento >= hoje && item.vencimento <= limite12Meses);
+        const resumo12Meses = {
+            quantidade: selecionados12Meses.length,
+            total: arredondarCentavos(selecionados12Meses.reduce((soma, item) => soma + Number(item.valor || 0), 0))
+        };
+        if ($('compromissos-vencidos')) $('compromissos-vencidos').textContent = String(resumoVencidos.quantidade);
+        if ($('compromissos-vencidos-valor')) $('compromissos-vencidos-valor').textContent = money(resumoVencidos.total);
+        if ($('compromissos-30')) $('compromissos-30').textContent = String(resumo30.quantidade);
+        if ($('compromissos-30-valor')) $('compromissos-30-valor').textContent = money(resumo30.total);
+        if ($('compromissos-60')) $('compromissos-60').textContent = String(resumo60.quantidade);
+        if ($('compromissos-60-valor')) $('compromissos-60-valor').textContent = money(resumo60.total);
+        if ($('compromissos-90')) $('compromissos-90').textContent = String(resumo90.quantidade);
+        if ($('compromissos-90-valor')) $('compromissos-90-valor').textContent = money(resumo90.total);
+        if ($('compromissos-12-meses')) $('compromissos-12-meses').textContent = String(resumo12Meses.quantidade);
+        if ($('compromissos-12-meses-valor')) $('compromissos-12-meses-valor').textContent = money(resumo12Meses.total);
+
+        // Mostra todos os vencimentos pendentes dentro dos próximos 12 meses,
+        // além dos vencidos, para a clínica visualizar a duração completa de um plano 12x.
+        const visiveis = [...vencidos, ...proximos12Meses].sort((a, b) => a.vencimento.localeCompare(b.vencimento)).slice(0, 1000);
+        if (!visiveis.length) {
+            const tr = document.createElement('tr'); const td = document.createElement('td');
+            td.colSpan = 6; td.className = 'empty-cell';
+            td.textContent = compromissosDespesas.length ? 'Não há parcelas vencidas ou com vencimento nos próximos 12 meses.' : 'Nenhum compromisso parcelado cadastrado.';
+            tr.appendChild(td); tbody.appendChild(tr);
+        } else {
+            visiveis.forEach(item => {
+                const tr = document.createElement('tr');
+                const contrato = item.despesa || {};
+                const vencida = item.status === 'pendente' && item.vencimento < hoje;
+                const valores = [formatarData(item.vencimento), `${contrato.descricao || 'Despesa'}${contrato.categoria ? ` — ${contrato.categoria}` : ''}${contrato.forma_pagamento ? ` · ${contrato.forma_pagamento}` : ''}`, `${item.numero_parcela}/${contrato.quantidade_parcelas || '?'}`, money(item.valor)];
+                valores.forEach((valor, idx) => { const td = document.createElement('td'); td.textContent = valor; if (idx === 3) td.style.fontWeight = '700'; tr.appendChild(td); });
+                const statusTd = document.createElement('td'); const status = document.createElement('span'); status.className = `commitment-status ${vencida ? 'overdue' : 'pending'}`; status.textContent = vencida ? 'Vencida' : 'Pendente'; statusTd.appendChild(status); tr.appendChild(statusTd);
+                const acaoTd = document.createElement('td');
+                if (exigirPerfil(['gerente', 'analista'])) {
+                    const botao = document.createElement('button'); botao.type = 'button'; botao.className = 'btn-primary commitment-action'; botao.textContent = 'Registrar pagamento';
+                    botao.addEventListener('click', () => abrirModalPagamentoParcela(item)); acaoTd.appendChild(botao);
+                } else { acaoTd.textContent = '—'; }
+                tr.appendChild(acaoTd); tbody.appendChild(tr);
+            });
+        }
+        if ($('compromissos-despesas-status')) $('compromissos-despesas-status').textContent = `Exibindo ${visiveis.length} compromisso(s) vencido(s) ou previstos para os próximos 12 meses. A agenda mostra cada parcela separadamente. Parcelas futuras não entram nas saídas realizadas.`;
+    }
+
+    async function carregarCompromissosDespesas() {
+        if (!exigirPerfil(['gerente', 'analista'])) return;
+        const status = $('compromissos-despesas-status');
+        if (status) status.textContent = 'Carregando compromissos financeiros...';
+        try {
+            const { data, error } = await supabaseClient
+                .from('parcelas_despesas')
+                .select('id,despesa_id,numero_parcela,valor,vencimento,status,despesa:despesas_contratadas!inner(descricao,categoria,forma_pagamento,valor_total,quantidade_parcelas)')
+                .eq('status', 'pendente')
+                .order('vencimento', { ascending: true })
+                .limit(1000);
+            if (error) throw error;
+            compromissosDespesas = data || [];
+            renderizarCompromissosDespesas();
+        } catch (error) {
+            compromissosDespesas = [];
+            renderizarCompromissosDespesas();
+            if (status) status.textContent = `Não foi possível carregar os compromissos. Verifique se a migration de despesas parceladas foi aplicada e se as políticas de leitura permitem acesso ao perfil: ${error.message}`;
+        }
+    }
+
+    async function salvarPagamentoParcela(evento) {
+        evento.preventDefault();
+        if (!exigirPerfil(['gerente', 'analista'])) return;
+        if (!parcelaSelecionadaParaPagamento) return;
+        const botao = $('btn-confirmar-pagamento-parcela');
+        botao.disabled = true;
+        botao.textContent = 'Registrando...';
+        try {
+            const { data, error } = await supabaseClient.rpc('audio_sa_registrar_pagamento_parcela_v1', {
+                p_parcela_id: parcelaSelecionadaParaPagamento.id,
+                p_data_pagamento: $('pagamento-parcela-data').value,
+                p_forma_pagamento: $('pagamento-parcela-forma').value,
+                p_observacoes: $('pagamento-parcela-observacao').value.trim() || null
+            });
+            if (error) throw error;
+            if (!data) throw new Error('O banco não confirmou o pagamento.');
+            fecharModalPagamentoParcela();
+            await carregarTransacoes();
+            await carregarCompromissosDespesas();
+            feedbackGlobal('Pagamento registrado. A saída foi contabilizada na data efetiva do pagamento.', 'success');
+        } catch (error) {
+            if ($('pagamento-parcela-feedback')) $('pagamento-parcela-feedback').textContent = `Não foi possível registrar o pagamento: ${error.message}`;
+        } finally {
+            botao.disabled = false;
+            botao.textContent = 'Confirmar pagamento';
+        }
     }
 
     function atualizarDashboardVisual() {
@@ -775,6 +1083,10 @@
         if (!exigirAnalista('editar lançamentos')) return;
         const transacao = transacoes.find(t => String(t.id) === String(id));
         if (!transacao) return feedbackGlobal('Lançamento não encontrado na lista atual.', 'error');
+        if (transacao.despesa_parcela_id) {
+            feedbackGlobal('Esta saída foi gerada pela quitação de uma parcela. Para preservar o vínculo entre parcela, pagamento e auditoria, ela não pode ser editada diretamente no histórico.', 'warning');
+            return;
+        }
         const composicao = composicaoDaTransacao(transacao);
         estadoEdicao = { transacao, snapshotDisponivel: composicao.completa, legado: !composicao.completa, financeDirty: false };
         suprimindoMudancaFinanceira = true;
@@ -893,7 +1205,51 @@
             };
         }
 
-        const frequencia = !editando && tipo === 'saida' && categoria === 'Custo fixo' ? ($('t-recorrencia')?.value || 'nenhuma') : 'nenhuma';
+        const despesaParcelada = !editando && tipo === 'saida' && $('t-saida-condicao')?.value === 'parcelado';
+        let contratoParcelado = null;
+        if (despesaParcelada) {
+            const quantidade = Number($('t-saida-quantidade-parcelas')?.value || 0);
+            const juros = Number($('t-saida-juros')?.value || 0);
+            const valorTotal = valorTotalCompraParcelada();
+            if (!['recepcao', 'gerente', 'analista'].includes(sessaoAtual?.perfil)) {
+                feedbackGlobal('Seu perfil não pode cadastrar esta despesa parcelada.', 'error');
+                return;
+            }
+            if (!Number.isInteger(quantidade) || quantidade < 2 || quantidade > 48) {
+                feedbackGlobal('Informe uma quantidade de parcelas entre 2 e 48.', 'error');
+                return;
+            }
+            if (!Number.isFinite(juros) || juros < 0 || juros > 100) {
+                feedbackGlobal('Informe juros totais entre 0% e 100%.', 'error');
+                return;
+            }
+            if (!$('t-saida-primeiro-vencimento')?.value) {
+                feedbackGlobal('Informe o vencimento da primeira parcela.', 'error');
+                return;
+            }
+            if (!atualizarTotalPreviaParcelas()) {
+                feedbackGlobal('Revise os valores e vencimentos: a soma das parcelas precisa corresponder ao total da compra com juros.', 'error');
+                return;
+            }
+            if (!$('t-forma-pagamento')?.value) {
+                feedbackGlobal('Selecione a forma de pagamento da compra.', 'error');
+                return;
+            }
+            contratoParcelado = {
+                id: gerarId(),
+                categoria,
+                descricao: descricaoBase,
+                valor_compra: arredondarCentavos(valorInformado),
+                juros_percentual: juros,
+                juros_valor: arredondarCentavos(valorTotal - valorInformado),
+                valor_total: valorTotal,
+                data_compra: data,
+                forma_pagamento: $('t-forma-pagamento').value,
+                quantidade_parcelas: quantidade
+            };
+        }
+
+        const frequencia = !editando && tipo === 'saida' && categoria === 'Custo fixo' && !despesaParcelada ? ($('t-recorrencia')?.value || 'nenhuma') : 'nenhuma';
         if (frequencia !== 'nenhuma' && !exigirPerfil(['gerente', 'analista'])) {
             feedbackGlobal('Somente Gerência ou Analista pode cadastrar uma regra de custo fixo recorrente.', 'error');
             return;
@@ -906,7 +1262,15 @@
         botao.textContent = editando ? 'Atualizando...' : 'Salvando...';
         try {
             let resultado;
-            if (editando) {
+            if (despesaParcelada) {
+                const rpc = await supabaseClient.rpc('audio_sa_criar_despesa_parcelada_v1', {
+                    p_despesa: contratoParcelado,
+                    p_parcelas: parcelasSaidaPreview.map(item => ({ ...item }))
+                });
+                if (rpc.error) throw rpc.error;
+                if (!rpc.data) throw new Error('O banco não confirmou a criação da compra parcelada.');
+                resultado = { data: { id: String(rpc.data) }, error: null };
+            } else if (editando) {
                 resultado = await supabaseClient.from('transacoes').update(payload).eq('id', editId).select('id').single();
             } else {
                 payload.id = gerarId();
@@ -940,13 +1304,14 @@
             $('form-transacao').reset();
             cancelarEdicao();
             if (sessaoAtual.perfil === 'recepcao') {
-                feedbackGlobal('Lançamento salvo com sucesso.', 'success');
+                feedbackGlobal(despesaParcelada ? 'Compra parcelada cadastrada. As parcelas foram programadas e estarão disponíveis na agenda para Gerência e Analista.' : 'Lançamento salvo com sucesso.', 'success');
                 $('t-data').value = dataLocalHoje();
                 mudarAba('lancamento');
             } else {
                 await carregarTransacoes();
                 await carregarRecorrencias();
-                feedbackGlobal(editando ? 'Lançamento atualizado com sucesso.' : (frequencia !== 'nenhuma' ? 'Lançamento salvo e regra recorrente cadastrada.' : 'Lançamento salvo com sucesso.'), 'success');
+                await carregarCompromissosDespesas();
+                feedbackGlobal(despesaParcelada ? 'Compra parcelada cadastrada. As parcelas ficaram programadas como compromissos futuros e ainda não entram nas saídas realizadas.' : (editando ? 'Lançamento atualizado com sucesso.' : (frequencia !== 'nenhuma' ? 'Lançamento salvo e regra recorrente cadastrada.' : 'Lançamento salvo com sucesso.')), 'success');
                 mudarAba('historico');
             }
         } catch (error) {
@@ -973,13 +1338,23 @@
         if ($('t-valor')) $('t-valor').readOnly = false;
         atualizarCategorias();
         $('t-data').value = dataLocalHoje();
+        if ($('t-saida-condicao')) $('t-saida-condicao').value = 'avista';
+        if ($('t-saida-quantidade-parcelas')) $('t-saida-quantidade-parcelas').value = '12';
+        if ($('t-saida-juros')) $('t-saida-juros').value = '0';
+        if ($('t-saida-primeiro-vencimento')) $('t-saida-primeiro-vencimento').value = dataLocalHoje();
+        parcelasSaidaPreview = [];
         suprimindoMudancaFinanceira = false;
+        atualizarCamposPagamento({ ajustarModo: true });
         atualizarPreviaFinanceira();
     }
 
     async function deletarTransacao(id) {
         if (!exigirAnalista('excluir lançamentos')) return;
         const registro = transacoes.find(t => String(t.id) === String(id));
+        if (registro?.despesa_parcela_id) {
+            feedbackGlobal('Esta saída está vinculada ao pagamento de uma parcela. Não a exclua diretamente do histórico; o cancelamento/estorno de parcelas exige um fluxo próprio para manter a integridade financeira.', 'warning');
+            return;
+        }
         if (registro?.recorrencia_id) {
             const regra = recorrencias.find(r => String(r.id) === String(registro.recorrencia_id));
             if (regra?.ativo) {
@@ -1665,8 +2040,27 @@
 
         $('form-transacao')?.addEventListener('submit', salvarTransacao);
         $('t-tipo')?.addEventListener('change', () => { atualizarCategorias(); marcarAlteracaoFinanceira(); });
+        $('t-saida-condicao')?.addEventListener('change', () => { parcelasSaidaPreview = []; atualizarCamposPagamento(); atualizarCampoRecorrencia(); });
+        ['t-saida-quantidade-parcelas', 't-saida-juros', 't-saida-primeiro-vencimento'].forEach(id => {
+            $(id)?.addEventListener('input', gerarPreviaParcelasSaida);
+            $(id)?.addEventListener('change', gerarPreviaParcelasSaida);
+        });
+        $('t-valor')?.addEventListener('input', () => { if ($('t-tipo')?.value === 'saida') gerarPreviaParcelasSaida(); });
+        $('parcelas-saida-preview-body')?.addEventListener('change', alterarPreviaParcela);
+        $('form-pagamento-parcela')?.addEventListener('submit', salvarPagamentoParcela);
+        $('btn-fechar-pagamento-parcela')?.addEventListener('click', fecharModalPagamentoParcela);
+        $('btn-cancelar-pagamento-parcela')?.addEventListener('click', fecharModalPagamentoParcela);
+        $('btn-atualizar-compromissos')?.addEventListener('click', carregarCompromissosDespesas);
         $('t-categoria')?.addEventListener('change', atualizarCampoRecorrencia);
-        $('t-forma-pagamento')?.addEventListener('change', () => { atualizarCamposPagamento({ ajustarModo: true }); marcarAlteracaoFinanceira(); });
+        $('t-forma-pagamento')?.addEventListener('change', () => {
+            if ($('t-tipo')?.value === 'saida' && $('t-forma-pagamento').value === 'Crédito Parcelado' && $('t-saida-condicao')) {
+                $('t-saida-condicao').value = 'parcelado';
+                parcelasSaidaPreview = [];
+            }
+            atualizarCamposPagamento({ ajustarModo: true });
+            atualizarCampoRecorrencia();
+            marcarAlteracaoFinanceira();
+        });
         $('t-bandeira')?.addEventListener('change', () => { atualizarCamposPagamento({ ajustarModo: true }); marcarAlteracaoFinanceira(); });
         $('t-parcelas')?.addEventListener('change', () => { atualizarCamposPagamento({ ajustarModo: true }); marcarAlteracaoFinanceira(); });
         $('t-modo-taxa')?.addEventListener('change', () => { atualizarCamposPagamento({ ajustarModo: false }); marcarAlteracaoFinanceira(); });
@@ -1704,6 +2098,7 @@
             renderCharts();
             vincularEventos();
             $('t-data').value = dataLocalHoje();
+            if ($('t-saida-primeiro-vencimento')) $('t-saida-primeiro-vencimento').value = dataLocalHoje();
             atualizarPreviaFinanceira();
 
             supabaseClient.auth.onAuthStateChange((_evento, session) => {
@@ -1725,4 +2120,3 @@
         }
     });
 })();
-
